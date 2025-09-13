@@ -1,0 +1,67 @@
+// /components/home/NavigationButtons.tsx
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
+import Theme from "@/constants/Theme";
+
+import IcHomePerformance from "../../assets/icons/ic-home-performance.svg";
+import IcHomeVenue from "../../assets/icons/ic-home-venue.svg";
+import IcHomeArtist from "../../assets/icons/ic-home-artist.svg";
+import IcHomePost from "../../assets/icons/ic-home-post.svg";
+
+type NavButton = {
+  label: string;
+  icon: any;
+  screen: string;
+};
+
+const NAV_BUTTONS: NavButton[] = [
+  { label: "공연", icon: IcHomePerformance, screen: "performance" },
+  { label: "공연장", icon: IcHomeVenue, screen: "venue" },
+  { label: "아티스트", icon: IcHomeArtist, screen: "artist" },
+  { label: "게시판", icon: IcHomePost, screen: "post" },
+];
+
+export default function NavigationButtons() {
+  const router = useRouter();
+
+  return (
+    <View style={styles.section}>
+      {NAV_BUTTONS.map((item, i) => (
+        <View key={i} style={styles.button}>
+          <TouchableOpacity
+            style={styles.iconWrapper}
+            onPress={() => router.push(item.screen)}
+          >
+            <item.icon width={Theme.iconSizes.md} height={Theme.iconSizes.md} />
+          </TouchableOpacity>
+          <Text style={styles.label}>{item.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  section: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    padding: Theme.spacing.md,
+  },
+  button: {
+    alignItems: "center",
+  },
+  iconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Theme.colors.lightGray,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Theme.spacing.sm,
+  },
+  label: {
+    fontSize: Theme.fontSizes.sm,
+    color: Theme.colors.black,
+    fontWeight: Theme.fontWeights.medium,
+  },
+});
