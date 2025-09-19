@@ -3,14 +3,18 @@
 import { View, Text, StyleSheet, FlatList } from "react-native";
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
+import { useRouter } from "expo-router";
 
 const NEW_PERFORMANCES = [
-  { id: "1", title: "오늘 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
-  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
-  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
+  { id: "1", title: "오늘 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
+  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
+  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
+  { id: "4", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
 ];
 
 export default function NewPerformances() {
+  const router = useRouter();
+  
   return (
     <View style={styles.section}>
       <Text style={styles.title}>NEW 업로드 공연</Text>
@@ -21,9 +25,9 @@ export default function NewPerformances() {
           <PerformanceCard
             type="new"
             title={item.title}
-            venue={item.venue}
             date={item.date}
             posterUrl={item.posterUrl}
+            onPress={() => router.push(`/performance/${item.id}`)}
           />
         )}
         keyExtractor={(item) => item.id}

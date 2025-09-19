@@ -21,14 +21,15 @@ export default function FilterButton({ label, onPress }: Props) {
 
 const styles = StyleSheet.create({
   button: {
-    padding: Theme.spacing.sm,
+    minHeight: 30, 
+    paddingHorizontal: Theme.spacing.sm,
     borderRadius: 20,
-    marginRight: Theme.spacing.sm,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
   },
+
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -38,4 +39,5 @@ const styles = StyleSheet.create({
     fontSize: Theme.fontSizes.base,
     color: Theme.colors.darkGray,
   },
+
 });

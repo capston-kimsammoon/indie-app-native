@@ -1,25 +1,37 @@
 // /app/(tabs)/performance/index.tsx
 import React, { useState } from "react";
-import { View, Text, FlatList } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+
 import FilterButton from "@/components/filters/FilterButton";
 import SortFilterModal from "@/components/filters/SortFilterModal";
 import RegionFilterModal from "@/components/filters/RegionFilterModal";
+import PerformanceCard from "@/components/cards/PerformanceCard";
+
+import { getDateFromDateString, getWeekDayFromDateString } from "@/utils/dateUtils";
 
 import Theme from "@/constants/Theme";
+import IcCalendar from "@/assets/icons/ic-calendar.svg";
 
 type Performance = {
   id: string;
   title: string;
+  venue: string;
+  date: string;
   region: string;
+  posterUrl: string;
 };
 
 const MOCK_PERFORMANCES: Performance[] = [
-  { id: "2", title: "aaa", region: "경기" },
-  { id: "3", title: "bbb", region: "부산" },
-  { id: "4", title: "ccc", region: "서울" },
+  { id: "1", title: "A Place Called Sound", venue: "코멘터리 사운드", date:"2025-09-14", region: "경기", posterUrl: "https://picsum.photos/90/120"},
+  { id: "2", title: "bbb", venue: "코멘터리 사운드", date:"2025-09-16", region: "부산", posterUrl: "https://picsum.photos/90/120" },
+  { id: "3", title: "ccc", venue: "코멘터리 사운드", date:"2025-09-15", region: "서울", posterUrl: "https://picsum.photos/90/120" },
 ];
 
 export default function PerformanceListPage() {
+  const navigation = useNavigation();
+  const router = useRouter();
   const [sort, setSort] = useState("최근등록순");
   const [regions, setRegions] = useState<string[]>(["전체"]);
 
@@ -38,11 +50,19 @@ export default function PerformanceListPage() {
   });
 
   return (
-    <View style={{ flex: 1, backgroundColor: Theme.colors.white }}>
-      {/* 필터 버튼 */}
-      <View style={{ flexDirection: "row", padding: 12, borderBottomWidth: 1, borderColor: Theme.colors.lightGray }}>
+    <View style={styles.container}>
+      {/* 필터 버튼 + 캘린더 */}
+      <View style={styles.filterRow}>
         <FilterButton label={`${sort}`} onPress={() => setSortVisible(true)} />
+          <View style={{marginRight: Theme.spacing.sm}} />
         <FilterButton label={getRegionLabel()} onPress={() => setRegionVisible(true)} />
+        <View style={styles.flexSpacer} />
+        <TouchableOpacity
+          style={styles.calendarButton}
+          onPress={() => router.push("/calendar")}
+        >
+          <IcCalendar width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} />
+        </TouchableOpacity>
       </View>
 
       {/* 공연 목록 */}
@@ -50,10 +70,17 @@ export default function PerformanceListPage() {
         data={filteredPerformances}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={{ padding: Theme.spacing.md, borderBottomWidth: 1, borderColor:Theme.colors.lightGray }}>
-            <Text style={{ fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.bold }}>{item.title}</Text>
-            <Text style={{  }}>{item.region}</Text>
-          </View>
+          <PerformanceCard
+            type="list"
+            title={item.title}
+            venue={item.venue}
+            date={`${getDateFromDateString(item.date)} ${getWeekDayFromDateString(item.date)}`}
+            posterUrl={item.posterUrl}
+            onPress={() => router.push(`/performance/${item.id}`)}
+          />
+        )}
+        ItemSeparatorComponent={() => (
+          <View style={styles.separator} />
         )}
       />
 
@@ -75,3 +102,33 @@ export default function PerformanceListPage() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Theme.colors.white,
+  },
+  filterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Theme.spacing.md,
+    paddingBottom: Theme.spacing.md,
+    borderBottomWidth: 1,
+    borderColor: Theme.colors.lightGray,
+  },
+  flexSpacer: {
+    flex: 1,
+  },
+  calendarButton: {
+    height: 30,
+    padding: Theme.spacing.sm,
+    borderRadius: Theme.iconSizes.md,
+    backgroundColor: Theme.colors.lightGray,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  separator: {
+    height: 1,
+    backgroundColor: Theme.colors.lightGray,
+  },
+});

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import Theme from '@/constants/Theme';
+import { useRouter } from 'expo-router';
 
 // 아이콘
 import IcHeaderLogo from '@/assets/icons/ic-header-logo.svg';
@@ -8,10 +9,22 @@ import IcHeaderSearch from '@/assets/icons/ic-header-search.svg';
 import IcHeaderAlarm from '@/assets/icons/ic-header-alarm.svg';
 import IcArrowLeft from '@/assets/icons/ic-arrow-left.svg';
 
-type Props = { pathname: string };
+type Props = { pathname: string; title?: string, venueName?: string, artistName?: string};
 
-export default function Header({ pathname }: Props) {
+export default function Header({ pathname, title, venueName, artistName }: Props) {
   const headerIconSize = Theme.iconSizes.sm;
+  const router = useRouter();
+
+  // 3. 페이지 이동 함수들
+  const handleNavigateToAlarm = () => {
+    router.push('/alarm');
+  };
+  const handleNavigateToSearch = () => {
+    router.push('/search');
+  };
+  const handleGoBack = () => {
+    router.back();
+  };
 
   // 페이지별 조건부 UI
   if (pathname === '/' || pathname === '/index') {
@@ -22,10 +35,11 @@ export default function Header({ pathname }: Props) {
           <IcHeaderLogo height={headerIconSize} />
         </View>
         <View style={styles.right}>
-          <Pressable style={styles.icon}>
+          {/* 각 아이콘에 맞는 이동 함수 연결 */}
+          <Pressable style={styles.icon} onPress={handleNavigateToSearch}>
             <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
           </Pressable>
-          <Pressable>
+          <Pressable onPress={handleNavigateToAlarm}>
             <IcHeaderAlarm width={headerIconSize} height={headerIconSize} />
           </Pressable>
         </View>
@@ -33,15 +47,105 @@ export default function Header({ pathname }: Props) {
     );
   }
 
-  if (pathname.startsWith('/performance')) {
-    // 공연 리스트 / 공연 상세
+    if (pathname.startsWith('/magazine')) {
+    // 매거진
     return (
       <View style={styles.header}>
-        <Pressable style={styles.left}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>김삼문 pick!</Text>
+        <Pressable style={styles.right} onPress={handleNavigateToSearch}>
+          <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (pathname.startsWith('/performance/') && title) {
+    // 공연 상세
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>{title}</Text> 
+        <Pressable style={styles.right} onPress={handleNavigateToSearch}>
+          <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (pathname.startsWith('/performance')) {
+    // 공연 리스트
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
           <IcArrowLeft width={headerIconSize} height={headerIconSize} />
         </Pressable>
         <Text style={styles.title}>공연</Text>
-        <Pressable style={styles.right}>
+        <Pressable style={styles.right} onPress={handleNavigateToSearch}>
+          <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (pathname.startsWith('/venue/') && title) {
+    // 공연장 상세
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>{venueName}</Text> 
+        <Pressable style={styles.right} onPress={handleNavigateToSearch}>
+          <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (pathname.startsWith('/venue')) {
+    // 공연장 리스트
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>공연장</Text>
+        <Pressable style={styles.right} onPress={handleNavigateToSearch}>
+          <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (pathname.startsWith('/artist/') && title) {
+    // 아티스트 상세
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>{artistName}</Text> 
+        <Pressable style={styles.right} onPress={handleNavigateToSearch}>
+          <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (pathname.startsWith('/artist')) {
+    // 아티스트 리스트
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>아티스트</Text>
+        <Pressable style={styles.right} onPress={handleNavigateToSearch}>
           <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
         </Pressable>
       </View>
@@ -51,7 +155,39 @@ export default function Header({ pathname }: Props) {
   if (pathname.startsWith('/calendar')) {
     return (
       <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
         <Text style={styles.title}>캘린더</Text>
+        <Pressable style={styles.right} onPress={handleNavigateToSearch}>
+          <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+      </View>
+    );
+  }
+  
+  // 알림 페이지 헤더
+  if (pathname.startsWith('/alarm')) {
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>알림</Text>
+        <View style={styles.right} />
+      </View>
+    );
+  }
+
+  // 검색 페이지 헤더 추가
+  if (pathname.startsWith('/search')) {
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>검색</Text>
+        <View style={styles.right} />
       </View>
     );
   }
@@ -59,7 +195,11 @@ export default function Header({ pathname }: Props) {
   if (pathname.startsWith('/mypage')) {
     return (
       <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
         <Text style={styles.title}>마이페이지</Text>
+        <View style={styles.right} />
       </View>
     );
   }
@@ -77,11 +217,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.lightGray,
     backgroundColor: Theme.colors.white,
     marginTop: Theme.spacing.lg,
-    paddingHorizontal: Theme.spacing.xs,
   },
   left: { flexDirection: 'row', alignItems: 'center', padding: Theme.spacing.md },
   right: { flexDirection: 'row', alignItems: 'center', padding: Theme.spacing.md },
