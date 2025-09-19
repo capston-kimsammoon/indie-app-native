@@ -3,14 +3,18 @@
 import { View, Text, StyleSheet, FlatList } from "react-native";
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
+import { useRouter } from "expo-router";
+import { getDateFromDateString } from "@/utils/dateUtils";
 
 const POPULAR_PERFORMANCES = [
-  { id: "1", title: "오늘 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
-  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
-  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
+  { id: "1", title: "어둠속 빛나는 광채 ‘DARK Radiance’", venue: "홍대 클럽", date: "2025-09-12", posterUrl: "https://picsum.photos/90/120" },
+  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/90/120" },
+  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/90/120" },
 ];
 
 export default function PopularPerformances() {
+  const router = useRouter();
+  
   return (
     <View style={styles.section}>
       <Text style={styles.title}>인기 많은 공연</Text>
@@ -21,9 +25,9 @@ export default function PopularPerformances() {
           <PerformanceCard
             type="popular"
             title={item.title}
-            venue={item.venue}
-            date={item.date}
+            date={getDateFromDateString(item.date)}
             posterUrl={item.posterUrl}
+            onPress={() => router.push(`/performance/${item.id}`)}
           />
         )}
         keyExtractor={(item) => item.id}

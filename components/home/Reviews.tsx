@@ -1,3 +1,4 @@
+/*
 // components/home/Reviews.tsx
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
 import Theme from "@/constants/Theme";
@@ -80,3 +81,4 @@ const styles = StyleSheet.create({
     paddingBottom: Theme.spacing.sm,
   },
 });
+*/

@@ -1,4 +1,4 @@
-package com.subin072.indieapp
+package com.kimthreemun.indieapp
 
 import android.app.Application
 import android.content.res.Configuration

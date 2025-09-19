@@ -2,6 +2,8 @@
 import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 import Theme from "@/constants/Theme";
 
+import { formatDate, getDateFromDateString } from '@/utils/dateUtils';
+
 import IcHeartOutline from "@/assets/icons/ic-heart-outline.svg";
 import IcHeartFilled from "@/assets/icons/ic-heart-filled.svg";
 import IcStampOutline from "@/assets/icons/ic-stamp-outline.svg";
@@ -14,11 +16,8 @@ type PerformanceCardProps = {
   time?: string;
   ticketOpenDate?: string;
   ticketOpenTime?: string;
-  reviewTitle?: string;
-  reviewContent?: string;
   userName?: string;
   posterUrl: string;
-  reviewCount?: number;
   content?: string;
   type?:
     | "today"
@@ -27,13 +26,15 @@ type PerformanceCardProps = {
     | "upcomingTicket"
     | "pick"
     | "mood"
-    | "review"
     | "list"
     | "venuePast"
     | "wish"
-    | "stamp";
+    | "stamp"
+    | "history"
+    | "calendar";
   showHeart?: boolean;
   showStamp?: boolean;
+  onPress?: () => void;
 };
 
 export default function PerformanceCard({
@@ -43,40 +44,42 @@ export default function PerformanceCard({
   ticketOpenDate,
   ticketOpenTime,
   posterUrl,
-  reviewCount,
   content,
-  reviewTitle,
-  reviewContent,
   userName,
   type = "popular",
   showHeart = false,
   showStamp = false,
+  onPress,
 }: PerformanceCardProps) {
-  const isHorizontal =
-    type === "today" || type === "venuePast";
+  const isHorizontal = type === "today" || type === "venuePast";
   const isUpcomingTicket = type === "upcomingTicket";
   const isPick = type === "pick";
-  const isVertical = type === "popular" || type === "new" || type === "mood";
-  const isReview = type === "review";
+  const isVertical = type === "popular" || type === "new" || type === "mood" || type === "history";
+  const isList = type === "list";
+  const isCalendar = type === "calendar";
 
   return (
-    <View
+    <TouchableOpacity 
+      onPress={onPress} 
       style={[
         styles.card,
         isHorizontal && styles.horizontalCard,
         isVertical && styles.verticalCard,
         isUpcomingTicket && styles.ticketCard,
+        isCalendar && styles.calendarCard,
         type === "list" && styles.listCard,
       ]}
     >
       <Image
-        source={posterUrl}
+        source={{uri: posterUrl}}
         style={[
           styles.poster,
           isHorizontal && styles.posterHorizontal,
           isVertical && styles.posterVertical,
+          isUpcomingTicket && styles.posterUpcoming,
           type === "list" && styles.posterList,
           isPick && styles.posterPick,
+          isCalendar && styles.posterCalendar,
         ]}
         resizeMode="cover"
       />
@@ -87,6 +90,7 @@ export default function PerformanceCard({
           isPick && styles.infoPick,
           isVertical && styles.infoVertical,
           isUpcomingTicket && styles.infoUpcomingTicket,
+          isList && styles.infoList,
         ]}
       >
         {isUpcomingTicket ? (
@@ -122,23 +126,20 @@ export default function PerformanceCard({
           </>
         ) : (
           <>
-          {/*}
-            <Text style={styles.title} numberOfLines={1}>
-              {title}
-            </Text>*/}
+            {title && !isPick && (
+              <Text style={[styles.title, isList && styles.titleList]} numberOfLines={2}>
+                {title}
+              </Text>
+            )}
 
-            {venue && (
-              <Text style={styles.venue} numberOfLines={1}>
+            {venue && !isVertical && (
+              <Text style={[styles.venue, isCalendar && styles.venueCalendar, isList && styles.venueList]} numberOfLines={1}>
                 {venue}
               </Text>
             )}
 
             {!isUpcomingTicket && date && (
-              <Text style={styles.date}>{date}</Text>
-            )}
-
-            {reviewCount !== undefined && (
-              <Text style={styles.review}>{reviewCount} 리뷰</Text>
+              <Text style={[styles.date, isList && styles.dateList]}>{date}</Text>
             )}
 
             {isPick && title && content && (
@@ -152,37 +153,6 @@ export default function PerformanceCard({
               </View>
             )}
           </>
-        )}
-        {/* 리뷰 타입 */}
-        {isReview ? (
-          <View style={styles.reviewCard}>
-            <Text style={styles.reviewPerformanceTitle} numberOfLines={1}>
-              {title}
-            </Text>
-            {reviewTitle && (
-              <Text style={styles.reviewTitle} numberOfLines={1}>
-                {reviewTitle}
-              </Text>
-            )}
-            {reviewContent && (
-              <Text style={styles.reviewContent} numberOfLines={2}>
-                {reviewContent}
-              </Text>
-            )}
-            {userName && (
-              <Text style={styles.reviewUserName}>{userName}</Text>
-            )}
-          </View>
-        ) : (
-          <View
-            style={[
-              styles.info,
-              isPick && styles.infoPick,
-              isVertical && styles.infoVertical,
-              isUpcomingTicket && styles.infoUpcomingTicket,
-            ]}
-          >
-          </View>
         )}
       </View>
 
@@ -199,7 +169,7 @@ export default function PerformanceCard({
           <IcStampOutline width={24} height={24} />
         </TouchableOpacity>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -209,8 +179,6 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.white,
     borderRadius: 8,
     padding: Theme.spacing.sm,
-    marginHorizontal: Theme.spacing.sm,
-    marginBottom: Theme.spacing.sm,
   },
   horizontalCard: {
     width: 200,
@@ -218,18 +186,25 @@ const styles = StyleSheet.create({
     marginRight: Theme.spacing.sm,
   },
   verticalCard: {
-    width: 140,
+    width: 120,
     flexDirection: "column",
     alignItems: "flex-start",
   },
   ticketCard: {
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
+    marginRight: Theme.spacing.md,
   },
   listCard: {
+    flexDirection: "row",
+    alignItems: "center",
     width: "100%",
-    marginHorizontal: 0,
-    paddingVertical: Theme.spacing.sm,
+    padding: Theme.spacing.md,
+  },
+  calendarCard: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "flex-start",
   },
   poster: {
     borderRadius: 8,
@@ -247,18 +222,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: Theme.spacing.md,
   },
+  posterUpcoming: {
+    height: "100%",
+  },
   posterList: {
-    width: 100,
-    height: 120,
     marginRight: Theme.spacing.md,
   },
   posterPick: {
     marginRight: Theme.spacing.sm,
   },
+  posterCalendar: {
+    width: "100%",
+    aspectRatio: 3 / 4,
+    height: undefined,
+    borderRadius: 8,
+    marginBottom: Theme.spacing.sm,
+  },
   info: {
-    flex: 1,
     justifyContent: "center",
-    marginLeft: Theme.spacing.sm,
   },
   infoVertical: {
     flexDirection: "column",
@@ -274,10 +255,35 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     justifyContent: "space-between",
   },
+  infoList: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  titleList: {
+    fontSize: Theme.fontSizes.lg,
+    fontWeight: Theme.fontWeights.semibold,
+    marginBottom: Theme.spacing.md,
+  },
+  venueList: {
+    fontSize: Theme.fontSizes.base,
+    fontWeight: Theme.fontWeights.regular,
+    color: Theme.colors.black,
+    marginBottom: Theme.spacing.sm,
+  },
+  venueCalendar: {
+    fontSize: Theme.fontSizes.xs,
+    fontWeight: Theme.fontWeights.regular,
+    color: Theme.colors.darkGray,
+  },
+  dateList: {
+    fontSize: Theme.fontSizes.base,
+    fontWeight: Theme.fontWeights.light,
+    color: Theme.colors.gray,
+  },
   title: {
     fontSize: Theme.fontSizes.base,
     fontWeight: Theme.fontWeights.semibold,
-    marginBottom: 2,
+    marginBottom: Theme.spacing.xs,
   },
   venue: {
     fontSize: Theme.fontSizes.xs,
@@ -299,10 +305,13 @@ const styles = StyleSheet.create({
   },
   ticketTop: {
     flexDirection: "column",
+    marginLeft: Theme.spacing.sm,
+    padding: Theme.spacing.sm,
   },
   ticketBottom: {
     flexDirection: "column",
-    marginTop: Theme.spacing.sm,
+    marginLeft: Theme.spacing.sm,
+    padding: Theme.spacing.sm,
   },
   ticketTagWrapper: {
     backgroundColor: Theme.colors.themeOrange,
@@ -390,6 +399,6 @@ const styles = StyleSheet.create({
   reviewIcon: {
     marginTop: Theme.spacing.sm,
   },
-
+  
 });
 

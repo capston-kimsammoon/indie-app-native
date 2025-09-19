@@ -1,83 +1,112 @@
 // components/home/TodayPerformances.tsx
-// 배너 첫 장에서 왼쪽으로 이동하면 마지막 장, 마지막 장에서 오른쪽으로 이동하면 첫 장 되어야 함 
-// 배너 첫 장, 마지막 장에서 좌우 화살표 클릭 시 애니메이션 방향 올바르게 처리해야 함
-// components/home/TodayPerformances.tsx
 import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Dimensions } from "react-native";
 import { useRef, useState } from "react";
 import Theme from "@/constants/Theme";
 import IcChevronLeft from "@/assets/icons/ic-chevron-left.svg";
 import IcChevronRight from "@/assets/icons/ic-chevron-right.svg";
 
+import { getToday, getDateFromDateString, getWeekDayFromDateString } from "@/utils/dateUtils";
+
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = Theme.spacing.md * 2;
 const BANNER_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING;
-const BANNER_HEIGHT = 200;
+const BANNER_HEIGHT = 160;
 
+// 실제 데이터
 const TODAY_ITEMS = [
-  { id: "1", title: "오늘 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: require("../../assets/images/sample-poster1.jpeg") },
-  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: require("../../assets/images/sample-poster1.jpeg") },
-  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025.09.12", posterUrl: require("../../assets/images/sample-poster1.jpeg") },
+  { id: "1", title: "ROCK N’ROLL BABY11", venue: "스팀펑크락", date: "2025-09-12", posterUrl: "https://picsum.photos/400/200" },
+  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/400/200" },
+  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/400/200" },
+  { id: "4", title: "오늘 공연 4", venue: "신촌 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/400/200" },
+];
+
+// 무한 루프용 복제 데이터
+const LOOPED_ITEMS = [
+  TODAY_ITEMS[TODAY_ITEMS.length - 1], // 마지막 카드
+  ...TODAY_ITEMS,
+  TODAY_ITEMS[0], // 첫 카드
 ];
 
 export default function TodayPerformances() {
   const flatListRef = useRef<FlatList>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0); // 실제 데이터 기준 0~n-1
 
-  const scrollToIndex = (index: number) => {
-    if (flatListRef.current) {
-      flatListRef.current.scrollToIndex({ index, animated: true });
-      setCurrentIndex(index);
+  const IcChevronSize = Theme.iconSizes.md;
+
+  // 스크롤 끝났을 때 보정
+  const onMomentumScrollEnd = (e: any) => {
+    const offset = e.nativeEvent.contentOffset.x;
+    const index = Math.round(offset / BANNER_WIDTH);
+
+    if (index === 0) {
+      // 첫 복제 카드 → 마지막 실제 카드로 순간 이동
+      flatListRef.current?.scrollToIndex({ index: TODAY_ITEMS.length, animated: false });
+      setCurrentIndex(TODAY_ITEMS.length - 1);
+    } else if (index === LOOPED_ITEMS.length - 1) {
+      // 마지막 복제 카드 → 첫 실제 카드로 순간 이동
+      flatListRef.current?.scrollToIndex({ index: 1, animated: false });
+      setCurrentIndex(0);
+    } else {
+      setCurrentIndex(index - 1); // 실제 데이터 인덱스
     }
   };
 
-  const onScroll = (e: any) => {
-    const newIndex = Math.round(e.nativeEvent.contentOffset.x / BANNER_WIDTH);
-    if (newIndex !== currentIndex) setCurrentIndex(newIndex);
+  // 버튼 클릭 시 한 칸 이동
+  const goToPrev = () => {
+    let newIndex = currentIndex - 1;
+    if (newIndex < 0) newIndex = TODAY_ITEMS.length - 1;
+    flatListRef.current?.scrollToIndex({ index: newIndex + 1, animated: true }); // looped +1
+    setCurrentIndex(newIndex);
+  };
+
+  const goToNext = () => {
+    let newIndex = currentIndex + 1;
+    if (newIndex >= TODAY_ITEMS.length) newIndex = 0;
+    flatListRef.current?.scrollToIndex({ index: newIndex + 1, animated: true }); // looped +1
+    setCurrentIndex(newIndex);
   };
 
   return (
     <View style={styles.section}>
-      <Text style={styles.title}>9월 12일 공연</Text>
+      <Text style={styles.title}>{getToday()} 공연</Text>
 
       <View style={styles.carouselWrapper}>
         <FlatList
           ref={flatListRef}
-          data={TODAY_ITEMS}
+          data={LOOPED_ITEMS}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <View style={styles.posterWrapper}>
-                <Image source={item.posterUrl} style={styles.poster} resizeMode="cover" />
-              </View>
+              <Image source={{ uri: item.posterUrl }} style={styles.poster} resizeMode="cover" />
               <View style={styles.info}>
-                <Text style={styles.performanceTitle}>{item.title}</Text>
+                <Text style={styles.performanceTitle} numberOfLines={1}>{item.title}</Text>
                 <Text style={styles.venue}>{item.venue}</Text>
-                <Text style={styles.date}>{item.date}</Text>
+                <Text style={styles.date}>{getDateFromDateString(item.date)} {getWeekDayFromDateString(item.date)}</Text>
               </View>
             </View>
           )}
+          keyExtractor={(_, i) => i.toString()}
           horizontal
           pagingEnabled
-          snapToInterval={BANNER_WIDTH + Theme.spacing.xs * 2}
+          snapToInterval={BANNER_WIDTH}
           decelerationRate="fast"
           showsHorizontalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
+          initialScrollIndex={1} // 실제 첫 카드
+          getItemLayout={(_, index) => ({
+            length: BANNER_WIDTH,
+            offset: BANNER_WIDTH * index,
+            index,
+          })}
+          onMomentumScrollEnd={onMomentumScrollEnd}
         />
 
         {/* 왼쪽 화살표 */}
-        <TouchableOpacity
-          style={[styles.iconButton, { left: 0 }]}
-          onPress={() => scrollToIndex(currentIndex === 0 ? TODAY_ITEMS.length - 1 : currentIndex - 1)}
-        >
-          <IcChevronLeft width={Theme.iconSizes.lg} height={Theme.iconSizes.lg} />
+        <TouchableOpacity style={[styles.iconLeftButton, { left: 0 }]} onPress={goToPrev}>
+          <IcChevronLeft width={IcChevronSize} height={IcChevronSize} />
         </TouchableOpacity>
 
         {/* 오른쪽 화살표 */}
-        <TouchableOpacity
-          style={[styles.iconButton, { right: 0 }]}
-          onPress={() => scrollToIndex(currentIndex === TODAY_ITEMS.length - 1 ? 0 : currentIndex + 1)}
-        >
-          <IcChevronRight width={Theme.iconSizes.lg} height={Theme.iconSizes.lg} />
+        <TouchableOpacity style={[styles.iconRightButton, { right: 0 }]} onPress={goToNext}>
+          <IcChevronRight width={IcChevronSize} height={IcChevronSize} />
         </TouchableOpacity>
 
         {/* 인디케이터 */}
@@ -106,21 +135,15 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
+    padding: Theme.spacing.md,
   },
   card: {
     width: BANNER_WIDTH,
     height: BANNER_HEIGHT,
-    paddingVertical: Theme.spacing.md,
-    paddingHorizontal: Theme.spacing.md + Theme.iconSizes.lg,
     flexDirection: "row",
     backgroundColor: Theme.colors.white,
     borderRadius: 8,
     overflow: "hidden",
-  },
-  posterWrapper: {
-    height: "100%",
-    justifyContent: "center",
-    aspectRatio: 3 / 4,
   },
   poster: {
     height: "100%",
@@ -128,33 +151,38 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   info: {
-    flex: 1,
     justifyContent: "center",
-    marginLeft: Theme.spacing.md,
+    marginLeft: Theme.spacing.lg,
   },
   performanceTitle: {
     fontSize: Theme.fontSizes.lg,
     fontWeight: Theme.fontWeights.semibold,
     color: Theme.colors.black,
-    paddingVertical: Theme.spacing.xs,
+    marginBottom: Theme.spacing.md,
+    flexWrap: "wrap", 
   },
   venue: {
     fontSize: Theme.fontSizes.sm,
+    fontWeight: Theme.fontWeights.regular,
     color: Theme.colors.black,
-    paddingVertical: Theme.spacing.xs,
+    marginBottom: Theme.spacing.sm,
   },
   date: {
     fontSize: Theme.fontSizes.sm,
+    fontWeight: Theme.fontWeights.regular,
     color: Theme.colors.darkGray,
-    paddingVertical: Theme.spacing.xs,
   },
-  iconButton: {
+  iconLeftButton: {
     position: "absolute",
     top: "50%",
-    transform: [{ translateY: -12 }],
-    backgroundColor: "transparent", 
-    marginHorizontal: Theme.spacing.sm,
-    zIndex: 10,
+    backgroundColor: "transparent",
+    marginHorizontal: Theme.spacing.md,
+  },
+  iconRightButton: {
+    position: "absolute",
+    top: "50%",
+    backgroundColor: "transparent",
+    marginHorizontal: Theme.spacing.md,
   },
   indicator: {
     position: "absolute",

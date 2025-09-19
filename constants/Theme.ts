@@ -45,6 +45,7 @@ export default {
   },
 
   iconSizes: {
+    xs: 12,
     sm: 16,
     md: 24,
     lg: 28, // 탭바 아이콘 크기
