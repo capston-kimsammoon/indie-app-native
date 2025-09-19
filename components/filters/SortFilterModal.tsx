@@ -72,9 +72,12 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.5)", // ✅ 모달 외부 배경 어둡게
+    backgroundColor: Theme.colors.shadow,
   },
   modal: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
     backgroundColor: Theme.colors.white,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

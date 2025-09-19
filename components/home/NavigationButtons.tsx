@@ -23,6 +23,7 @@ const NAV_BUTTONS: NavButton[] = [
 
 export default function NavigationButtons() {
   const router = useRouter();
+  const iconSize = Theme.iconSizes.lg;
 
   return (
     <View style={styles.section}>
@@ -32,7 +33,7 @@ export default function NavigationButtons() {
             style={styles.iconWrapper}
             onPress={() => router.push(item.screen)}
           >
-            <item.icon width={Theme.iconSizes.md} height={Theme.iconSizes.md} />
+            <item.icon width={iconSize} height={iconSize} />
           </TouchableOpacity>
           <Text style={styles.label}>{item.label}</Text>
         </View>
@@ -53,7 +54,7 @@ const styles = StyleSheet.create({
   iconWrapper: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: 10,
     backgroundColor: Theme.colors.lightGray,
     justifyContent: "center",
     alignItems: "center",

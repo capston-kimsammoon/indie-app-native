@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.subin072.indieapp'
+    namespace 'com.kimthreemun.indieapp'
     defaultConfig {
-        applicationId 'com.subin072.indieapp'
+        applicationId 'com.kimthreemun.indieapp'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

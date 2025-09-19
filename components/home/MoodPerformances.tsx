@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native
 import { useState } from "react";
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
+import { useRouter } from "expo-router";
 
 type Mood = "신나는" | "차분한" | "따뜻한" | "짜릿한";
 
@@ -17,22 +18,24 @@ const MOOD_ITEMS: Record<Mood, {
   posterUrl: string;
 }[]> = {
   "신나는": [
-    { id: "1", title: "신나는 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
-    { id: "2", title: "신나는 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
-    { id: "3", title: "신나는 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
+    { id: "1", title: "신나는 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
+    { id: "2", title: "신나는 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
+    { id: "3", title: "신나는 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
   ],
   "차분한": [
-    { id: "3", title: "차분한 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
+    { id: "3", title: "차분한 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
   ],
   "따뜻한": [
-    { id: "4", title: "따뜻한 공연 1", venue: "이태원 클럽", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
+    { id: "4", title: "따뜻한 공연 1", venue: "이태원 클럽", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
   ],
   "짜릿한": [
-    { id: "5", title: "짜릿한 공연 1", venue: "강남 공연장", date: "2025.09.12", posterUrl: require('../../assets/images/sample-poster1.jpeg') },
+    { id: "5", title: "짜릿한 공연 1", venue: "강남 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
   ],
 };
 
 export default function MoodPerformances() {
+  const router = useRouter();
+
   const [selectedMood, setSelectedMood] = useState<Mood>(MOODS[0]);
 
   return (
@@ -69,9 +72,9 @@ export default function MoodPerformances() {
           <PerformanceCard
             type="mood"
             title={item.title}
-            venue={item.venue}
             date={item.date}
             posterUrl={item.posterUrl}
+            onPress={() => router.push(`/performance/${item.id}`)}
           />
         )}
         keyExtractor={(item) => item.id}

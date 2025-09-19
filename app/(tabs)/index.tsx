@@ -10,7 +10,6 @@ import NewPerformances from "@/components/home/NewPerformances";
 import UpcomingTickets from "@/components/home/UpcomingTickets";
 import PickSection from "@/components/home/CuratedPick";
 import MoodPerformances from "@/components/home/MoodPerformances";
-import Reviews from "@/components/home/Reviews";
 
 export default function TabHomeScreen() {
   return (
@@ -39,9 +38,6 @@ export default function TabHomeScreen() {
 
       {/* 7. Mood별 공연 */}
       <MoodPerformances />
-
-      {/* 8. 관람 후기 */}
-      <Reviews />
 
       {/* 맨 아래 약관 정보 */}
       {/* 추후 링크 첨부 */}
