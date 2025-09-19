@@ -1,4 +1,4 @@
-package com.subin072.indieapp
+package com.kimthreemun.indieapp
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
