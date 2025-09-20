@@ -18,7 +18,7 @@ const NAV_BUTTONS: NavButton[] = [
   { label: "공연", icon: IcHomePerformance, screen: "performance" },
   { label: "공연장", icon: IcHomeVenue, screen: "venue" },
   { label: "아티스트", icon: IcHomeArtist, screen: "artist" },
-  { label: "게시판", icon: IcHomePost, screen: "post" },
+  { label: "매거진", icon: IcHomePost, screen: "magazine" },
 ];
 
 export default function NavigationButtons() {
