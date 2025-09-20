@@ -11,6 +11,7 @@ import IcArrowLeft from '@/assets/icons/ic-arrow-left.svg';
 
 type Props = { pathname: string; title?: string, venueName?: string, artistName?: string};
 
+export default function Header({ pathname , title}: Props) {
 export default function Header({ pathname, title, venueName, artistName }: Props) {
   const headerIconSize = Theme.iconSizes.sm;
   const router = useRouter();
@@ -195,19 +196,125 @@ export default function Header({ pathname, title, venueName, artistName }: Props
   if (pathname.startsWith('/mypage')) {
     return (
       <View style={styles.header}>
-        <Pressable style={styles.left} onPress={handleGoBack}>
+        <Pressable style={styles.left} onPress={() => router.push('/')}>
           <IcArrowLeft width={headerIconSize} height={headerIconSize} />
         </Pressable>
         <Text style={styles.title}>마이페이지</Text>
-        <View style={styles.right} />
+        <View style={styles.right}>
+        </View>
       </View>
     );
   }
+  if (pathname.startsWith('/stamp')) {
+  return (
+    <View style={styles.header}>
+      <Pressable style={styles.left} onPress={() => router.push('/')}>
+        <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+      <Text style={styles.title}>스탬프</Text>
+      <Pressable
+       style={styles.right}
+       hitSlop={8}
+       onPress={() => router.setParams({ search: '1' })}
+     >
+        <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+    </View>
+  );
+}
+  if (pathname.startsWith('/favorite')) {
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={() => router.push('/mypage')}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>찜</Text>
+        <View style={styles.right}>
+        </View>
+      </View>
+    );
+  }
+  if (pathname.startsWith('/myreview')) {
+  return (
+    <View style={styles.header}>
+      <Pressable style={styles.left} onPress={() => router.push('/mypage')}>
+        <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+      <Text style={styles.title}>내가 쓴 리뷰</Text>
+      <Pressable
+       style={styles.right}
+       hitSlop={8}
+       onPress={() => router.setParams({ search: '1' })}
+     >
+        <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+    </View>
+  );
+}
+if (pathname.startsWith('/mystamp')) {
+  return (
+    <View style={styles.header}>
+      <Pressable style={styles.left} onPress={() => router.push('/mypage')}>
+        <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+      <Text style={styles.title}>나의 스탬프</Text>
+      <Pressable
+       style={styles.right}
+       hitSlop={8}
+       onPress={() => router.setParams({ search: '1' })}
+     >
+        <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+    </View>
+  );
+}
+if (pathname.startsWith('/getstamp')) {
+  return (
+    <View style={styles.header}>
+      <Pressable style={styles.left} onPress={() => router.push('/mystamp')}>
+        <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+      <Text style={styles.title}>스탬프 찾기</Text>
+      <Pressable
+       style={styles.right}
+       hitSlop={8}
+       onPress={() => router.setParams({ search: '1' })}
+     >
+        <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+    </View>
+  );
+}
 
+if (pathname.startsWith('/location')) {
+  return (
+    <View style={styles.header}>
+      <Pressable style={styles.left} onPress={() => router.push('/')}>
+        <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+      <Text style={styles.title}>가까운 공연 찾기</Text>
+      <Pressable
+       style={styles.right}
+       hitSlop={8}
+       onPress={() => router.setParams({ search: '1' })}
+     >
+        <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+    </View>
+  );
+}
   // 기본 헤더
   return (
     <View style={styles.header}>
-      <Text style={styles.title}>기본</Text>
+      <Pressable style={styles.left}>
+        <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+      </Pressable>
+      <Text style={styles.title}>{title ?? '기본'}</Text>
+      <View style={styles.right}>
+        {pathname.startsWith('/performance') && (
+          <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+        )}
+      </View>
     </View>
   );
 }
@@ -217,8 +324,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Theme.colors.white,
-    marginTop: Theme.spacing.lg,
+    borderBottomWidth: 0,
+    borderBottomColor: Theme.colors.lightGray,
+    backgroundColor: 'transparent',
+    marginTop: Theme.spacing.xl,
+    paddingHorizontal: Theme.spacing.xs,
   },
   left: { flexDirection: 'row', alignItems: 'center', padding: Theme.spacing.md },
   right: { flexDirection: 'row', alignItems: 'center', padding: Theme.spacing.md },
