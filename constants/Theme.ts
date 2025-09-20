@@ -1,4 +1,4 @@
-// constants/theme.ts
+// constants/Theme.ts
 
 export default {
   colors: {
@@ -11,7 +11,7 @@ export default {
     darkGray: '#4B4B4B',
     gray: '#B0B0B0',
     lightGray: '#E4E4E4',
-    tabBarGray: 'F1F1F1',
+    tabBarGray: '#F1F1F1',
     shadow: 'rgba(0,0,0,0.2)',
 
     // 테마 색상
@@ -42,6 +42,7 @@ export default {
     sm: 8,
     md: 16,
     lg: 24,
+    xl: 32,
   },
 
   iconSizes: {
