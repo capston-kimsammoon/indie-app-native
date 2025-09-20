@@ -205,7 +205,7 @@ export default function MapPage() {
     }
   };
 
-  const log = (...args: any[]) => console.log('🧭[MapPage]', ...args);
+  const log = (...args: any[]) => console.log('[MapPage]', ...args);
 
   const handleSearchInMap = ({ ne, sw, center, zoom }: { ne: BoundsPt; sw: BoundsPt; center: BoundsPt; zoom?: number }) => {
     log('searchHere bounds:', { ne, sw, center, zoom });
