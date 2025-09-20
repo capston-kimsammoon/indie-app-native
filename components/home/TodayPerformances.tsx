@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: Theme.fontSizes.lg,
     fontWeight: Theme.fontWeights.semibold,
-    paddingVertical: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.md,
   },
   carouselWrapper: {
     position: "relative",

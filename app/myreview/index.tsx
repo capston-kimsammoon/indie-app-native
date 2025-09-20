@@ -14,6 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { X as XIcon } from "lucide-react-native"; 
 
+import Theme from "@/constants/Theme";
+
 type Review = {
   id: number;
   text: string;
@@ -83,7 +85,7 @@ export default function MyReviewsScreen() {
         onPress={() => removeReview(item.id)}
         style={styles.deleteBtnTop}
       >
-        <XIcon size={15} color="#6B7280" />
+        <XIcon size={15} color={Theme.colors.darkGray} />
       </Pressable>
 
       <Text style={styles.reviewText} numberOfLines={4}>
@@ -147,27 +149,22 @@ export default function MyReviewsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: { flex: 1, backgroundColor: Theme.colors.white },
 
   searchBarWrap: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e5e5",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 8,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: Theme.colors.lightGray,
+    marginHorizontal: Theme.spacing.md,
+    padding: Theme.spacing.sm,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fafafa",
+    backgroundColor: Theme.colors.white,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 2,
-    fontSize: 14,
-    color: "#111",
+    fontSize: Theme.fontSizes.sm,
+    color: Theme.colors.black,
   },
 
   listContent: {
@@ -178,13 +175,13 @@ const styles = StyleSheet.create({
 
   card: {
     position: "relative",
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    padding: 12,
-    paddingRight: 36, 
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ececec",
-    elevation: 2,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    marginBottom: Theme.spacing.sm,
+    borderRadius: 5,
+    backgroundColor: Theme.colors.white,
+    borderWidth: 1,
+    borderColor: Theme.colors.lightGray,
   },
 
   deleteBtnTop: {

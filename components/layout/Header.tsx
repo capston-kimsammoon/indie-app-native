@@ -11,9 +11,8 @@ import IcArrowLeft from '@/assets/icons/ic-arrow-left.svg';
 
 type Props = { pathname: string; title?: string, venueName?: string, artistName?: string};
 
-export default function Header({ pathname , title}: Props) {
 export default function Header({ pathname, title, venueName, artistName }: Props) {
-  const headerIconSize = Theme.iconSizes.sm;
+  const headerIconSize = Theme.iconSizes.md;
   const router = useRouter();
 
   // 3. 페이지 이동 함수들
@@ -199,7 +198,7 @@ export default function Header({ pathname, title, venueName, artistName }: Props
         <Pressable style={styles.left} onPress={() => router.push('/')}>
           <IcArrowLeft width={headerIconSize} height={headerIconSize} />
         </Pressable>
-        <Text style={styles.title}>마이페이지</Text>
+        <Text style={styles.title}></Text>
         <View style={styles.right}>
         </View>
       </View>
@@ -326,7 +325,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderBottomWidth: 0,
     borderBottomColor: Theme.colors.lightGray,
-    backgroundColor: 'transparent',
+    backgroundColor: Theme.colors.white,
     marginTop: Theme.spacing.xl,
     paddingHorizontal: Theme.spacing.xs,
   },
