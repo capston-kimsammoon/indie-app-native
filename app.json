@@ -30,7 +30,19 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "@mj-studio/react-native-naver-map",
+        {
+          "ios": {
+            "clientId": "kfo2xff2i9"
+          },
+          "android": {
+            "clientId": "kfo2xff2i9"
+          }
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

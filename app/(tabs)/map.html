@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    html,body,#map{margin:0;padding:0;height:100%}
+    .btn{
+      position:absolute;z-index:1000;
+      background:#fff5ef;border:1px solid #ff7a3d;color:#d55a1f;
+      border-radius:24px;padding:6px 10px;
+    }
+    #searchHere{top:10px;left:50%;transform:translateX(-50%)}
+    #locateMe{
+      right:12px;bottom:12px;
+      width:40px;height:40px;
+      display:flex;align-items:center;justify-content:center;background-color:transparent;
+      border: none; 
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <button id="searchHere" class="btn">현 지도에서 검색</button>
+  <button id="locateMe" class="btn">
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" 
+       viewBox="-2 -2 26 26" fill="none" stroke="#d55a1f" 
+       stroke-width="2" >
+    <circle cx="12" cy="12" r="10"/>
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="-2" x2="12" y2="2"/>
+    <line x1="12" y1="22" x2="12" y2="26"/>
+    <line x1="22" y1="12" x2="26" y2="12"/>
+    <line x1="-2" y1="12" x2="2" y2="12"/>
+  </svg>
+
+  </button>
+
+  <script>
+  (function(){
+    function post(x){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(x)); }catch(e){} }
+    post({ type:'origin', origin: location.origin, href: location.href });
+
+    var s=document.createElement('script');
+    s.src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=kfo2xff2i9";
+    s.onload=function(){ post({ type:'maps', ok:true }); init(); };
+    s.onerror=function(){ post({ type:'maps', ok:false }); };
+    document.head.appendChild(s);
+
+    var map=null, markers=[], ready=false, queue=[], myMarker=null;
+
+    function init(){
+      if(!window.naver||!naver.maps){ post({ type:'init', ok:false }); return; }
+      map = new naver.maps.Map('map',{ center:new naver.maps.LatLng(37.5533,126.9232), zoom:13 });
+      ready=true; post({ type:'ready' });
+      while(queue.length){ handle(queue.shift()); }
+      document.getElementById('searchHere').onclick = function(){
+        var b=map.getBounds(), c=map.getCenter();
+        post({ type:'searchHere',
+          ne:{lat:b.getNE().lat(),lng:b.getNE().lng()},
+          sw:{lat:b.getSW().lat(),lng:b.getSW().lng()},
+          center:{lat:c.lat(),lng:c.lng()},
+          zoom: map.getZoom()
+        });
+      };
+
+      document.getElementById('locateMe').onclick = function(){
+        post({ type:'locate:request' });
+      };
+    }
+
+    window.addEventListener('message', function(e){
+      var msg; try{ msg=JSON.parse(e.data||'{}'); }catch(_){ return; }
+      if(!ready){ queue.push(msg); return; }
+      handle(msg);
+    });
+
+    function handle(msg){
+      if(msg.type==='setMarkers'){
+        markers.forEach(m=>m.setMap(null));
+        markers = [];
+
+        var baseSvg = msg.pinSvg || null;
+        var selSvg  = msg.selectedPinSvg || baseSvg;
+        var selId   = msg.selectedId != null ? String(msg.selectedId) : null;
+
+        (msg.data||[]).filter(Boolean).forEach(function(it){
+          var icon;
+          if(selId && String(it.id)===selId && selSvg){
+            icon = {
+              content: selSvg,
+              size: new naver.maps.Size(28,28),
+              anchor: new naver.maps.Point(14,28)
+            };
+          } else if(baseSvg){
+            icon = {
+              content: baseSvg,
+              size: new naver.maps.Size(28,28),
+              anchor: new naver.maps.Point(14,28)
+            };
+          } else {
+            icon = null;
+          }
+
+          var m=new naver.maps.Marker({
+            position:new naver.maps.LatLng(it.lat,it.lng),
+            map,
+            title:it.title||'',
+            icon: icon || undefined
+          });
+          naver.maps.Event.addListener(m,'click',()=>post({ type:'marker', id: it.id }));
+          markers.push(m);
+        });
+        post({ type:'setMarkers:done', count: markers.length });
+      } else if(msg.type==='setView' && msg.center){
+        map.setCenter(new naver.maps.LatLng(msg.center.lat, msg.center.lng));
+        if(typeof msg.zoom==='number') map.setZoom(msg.zoom);
+        post({ type:'setView:done', center: msg.center, zoom: msg.zoom });
+      } else if (msg.type==='locate:set' && typeof msg.lat==='number' && typeof msg.lng==='number'){
+        var ll = new naver.maps.LatLng(msg.lat, msg.lng);
+        map.panTo(ll);
+        if(!myMarker){
+          myMarker = new naver.maps.Marker({
+            position: ll,
+            map,
+            icon:{
+              content:'<div style="background:#007bff;border-radius:50%;width:14px;height:14px;border:2px solid white;"></div>',
+              size:new naver.maps.Size(14,14),
+              anchor:new naver.maps.Point(7,7)
+            },
+            zIndex: 9999
+          });
+        } else {
+          myMarker.setPosition(ll);
+        }
+      }
+    }
+  })();
+  </script>
+</body>
+</html>
