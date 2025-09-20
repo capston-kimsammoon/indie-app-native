@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: Theme.colors.lightGray,
-    backgroundColor: Theme.colors.white,
+    backgroundColor: 'transparent',
     marginBottom: Theme.spacing.md,
   },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Theme.spacing.md},
