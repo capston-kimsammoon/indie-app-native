@@ -89,7 +89,7 @@ export default function FavoritePage() {
 
       {TabHeader}
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.scroll}>
         {selectedTab === "performance" ? (
           perfFavs.length === 0 ? (
             <Empty text="찜한 공연이 없어요." />
@@ -155,41 +155,68 @@ const styles = StyleSheet.create({
     gap: 120,
     paddingVertical: Theme.spacing.md,
   },
-  tabText: { fontSize: Theme.fontSizes.sm },
+  tabText: { 
+    fontSize: Theme.fontSizes.base,
+    fontWeight: Theme.fontWeights.medium,
+  },
   tabActive: {
-    color: "#ff4f4fff",
-    fontWeight: Theme.fontWeights.bold,
+    color: Theme.colors.themeOrange,
     borderBottomWidth: 2,
-    borderBottomColor: "#ff4f4fff",
+    borderBottomColor: Theme.colors.themeOrange,
     paddingBottom: 4,
   },
   tabInactive: {
-    color: Theme.colors.gray,
+    color: Theme.colors.darkGray,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
     paddingBottom: 4,
   },
 
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: Theme.spacing.md, paddingTop: Theme.spacing.sm },
-
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingBottom: Theme.spacing.sm,
-    marginBottom: Theme.spacing.sm,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Theme.colors.lightGray,
   },
   flex1: { flex: 1 },
 
-  perfThumb: { width: 64, height: 80, borderRadius: 8, marginRight: Theme.spacing.sm },
-  perfTitle: { fontWeight: Theme.fontWeights.bold, fontSize: Theme.fontSizes.sm, color: Theme.colors.black },
-  perfVenue: { color: Theme.colors.darkGray, marginTop: 2, fontSize: Theme.fontSizes.xs },
-  perfDate: { color: Theme.colors.gray, marginTop: 2, fontSize: Theme.fontSizes.xs },
+  perfThumb: { 
+    width: "20%", 
+    aspectRatio: 3/4,
+    borderRadius: 5,
+    marginRight: Theme.spacing.md 
+  },
+  perfTitle: { 
+    fontWeight: Theme.fontWeights.semibold, 
+    fontSize: Theme.fontSizes.base, 
+    color: Theme.colors.black 
+  },
+  perfVenue: { 
+    color: Theme.colors.black, 
+    marginTop: Theme.spacing.sm,
+    fontSize: Theme.fontSizes.sm,
+    fontWeight: Theme.fontWeights.regular, 
+  },
+  perfDate: { 
+    color: Theme.colors.darkGray, 
+    marginTop: Theme.spacing.xs,
+    fontSize: Theme.fontSizes.sm,
+    fontWeight: Theme.fontWeights.light, 
+  },
 
-  avatar: { width: 48, height: 48, borderRadius: 24, marginRight: Theme.spacing.sm },
-  artistName: { fontSize: Theme.fontSizes.sm, fontWeight: Theme.fontWeights.medium, color: Theme.colors.black },
+  avatar: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 24, 
+    marginRight: Theme.spacing.sm 
+  },
+  artistName: { 
+    fontSize: Theme.fontSizes.base, 
+    fontWeight: Theme.fontWeights.medium, 
+    color: Theme.colors.black 
+  },
 
   notifyPill: {
     flexDirection: "row",
@@ -202,9 +229,16 @@ const styles = StyleSheet.create({
     marginRight: Theme.spacing.sm,
     backgroundColor: Theme.colors.white,
   },
-  notifyText: { fontSize: Theme.fontSizes.xs },
-  notifyTextOff: { color: Theme.colors.gray },
-  notifyTextOn: { color: Theme.colors.themeOrange, fontWeight: Theme.fontWeights.semibold },
+  notifyText: { 
+    fontSize: Theme.fontSizes.sm,
+    fontWeight: Theme.fontWeights.regular,
+  },
+  notifyTextOff: { 
+    color: Theme.colors.darkGray, 
+  },
+  notifyTextOn: { 
+    color: Theme.colors.themeOrange, 
+  },
 
   heartOutlineCircle: {
     width: 34,
@@ -217,6 +251,6 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.white,
   },
 
-  emptyBox: { alignItems: "center", justifyContent: "center", paddingVertical: Theme.spacing.lg * 2 },
-  emptyText: { color: Theme.colors.gray, marginTop: Theme.spacing.xs },
+  emptyBox: { alignItems: "center", justifyContent: "center", paddingVertical: Theme.spacing.md },
+  emptyText: { color: Theme.colors.gray, marginTop: Theme.spacing.md },
 });
