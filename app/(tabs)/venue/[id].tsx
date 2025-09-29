@@ -1,15 +1,14 @@
 // app/(tabs)/venue/[id].tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     View,
     Text,
     StyleSheet,
     Image,
     ScrollView,
-    Linking,
     Pressable,
     FlatList,
-    Alert, Platform, ToastAndroid
+    Linking
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -17,76 +16,82 @@ import Toast from "react-native-toast-message";
 
 import { NaverMapView, NaverMapMarkerOverlay } from "@mj-studio/react-native-naver-map";
 
-import Header from "@/components/layout/Header";
 import Theme from "@/constants/Theme";
-import { formatDateTime, calcDDay } from "@/utils/dateUtils";
-import * as Clipboard from 'expo-clipboard';
+import * as Clipboard from "expo-clipboard";
 import PerformanceCard from "@/components/cards/PerformanceCard";
-import ReviewCard from "@/components/cards/ReviewCard";
+import ReviewPrevCard from "@/components/cards/ReviewPrevCard";
 import IcClipboard from "@/assets/icons/ic-clipboard.svg";
+import { getDateFromDateString } from "@/utils/dateUtils";
+
+import { fetchVenueDetail } from "@/api/VenueApi";
+import { fetchVenueReviewList } from "@/api/ReviewApi";
+import { VenueDetailResponse, VenueReviewItem } from "@/types/venue";
+import { Performance } from "@/types/performance";
+import { ReviewItem } from "@/types/review";
+import { TEST_TOKEN } from "@env";
 
 type RouteParams = { id: string };
-
-const MOCK_DETAIL = {
-    id: 1,
-    profleUrl: "https://picsum.photos/90/120",
-    name: "언플러그드 홍대",
-    instagramAccount: "unplugged_stage",
-    address: "서울특별시 마포구 와우산로33길 26",
-    latitude: 37.555639,
-    longitude: 126.929180,
-
-    upcomingPerformances: [
-        { id: "1", title: "시간의 목소리", date: "2025-05-10", posterUrl: "https://picsum.photos/90/120"},
-        { id: "2", title: "우리의 16번째 절기 ‘추분’", date: "2025-05-10", posterUrl: "https://picsum.photos/90/120"},
-        { id: "3", title: "시간의 목소리", date: "2025-05-10", posterUrl: "https://picsum.photos/90/120"},
-    ],
-    pastPerformances: [
-        { id: "1", title: "시간의 목소리~", date: "2025.05.10", posterUrl: "https://picsum.photos/90/120"},
-        { id: "2", title: "우리의 16번째 절기 ‘추분’", date: "2025.05.10", posterUrl: "https://picsum.photos/90/120"},
-        { id: "3", title: "시간의 목소리", date: "2025.05.10", posterUrl: "https://picsum.photos/90/120"},
-    ],
-    reviews: [
-        { id: "1", content: "홍입에서 걸어서 10분도 안 걸림 홍입에서 걸어서 10분도 안 걸림 홍입에서 걸어서 10분도 안 걸림 홍입에서 걸어서 10분도 안 걸림", userName: "하츄핑", userProfile: "https://picsum.photos/100/100"},
-        { id: "2", content: "여기 화장실 깨끗해서 좋아요", userName: "하츄핑", userProfile: "https://picsum.photos/100/100"},
-    ]
-};
 
 export default function VenueDetailPage() {
     const route = useRoute();
     const router = useRouter();
     const { id } = route.params as RouteParams;
 
-    const venue = MOCK_DETAIL;
+    const [venue, setVenue] = useState<VenueDetailResponse | null>(null);
+    const [reviews, setReviews] = useState<ReviewItem[]>([]);
+
+    useEffect(() => {
+        const loadVenueData = async () => {
+            try {
+                // 공연장 상세 정보
+                const venueData = await fetchVenueDetail(Number(id));
+                setVenue(venueData);
+
+                // 공연장 리뷰
+                const reviewData = await fetchVenueReviewList(Number(id), 1, TEST_TOKEN);
+                setReviews(reviewData.items);
+            } catch (err) {
+                console.error("공연장 데이터 로드 실패:", err);
+            }
+        };
+
+        loadVenueData();
+    }, [id]);
+
+
+    if (!venue) return <Text>Loading...</Text>;
 
     return (
         <View style={{ flex: 1 }}>
             <ScrollView style={styles.container}>
-                {/* 상단 공연 정보 */}
+                {/* 상단 공연장 정보 */}
                 <View style={styles.topSection}>
-                    <Image
-                        source={{uri: venue.profleUrl}}
-                        style={styles.profile}
-                    />
+                    <Image source={{ uri: venue.image_url }} style={styles.profile} />
                     <Text style={styles.venueName}>{venue.name}</Text>
                 </View>
 
                 <View style={styles.separator} />
 
                 <View style={styles.bottomSection}>
+                    {/* 인스타그램 */}
                     <View style={styles.row}>
                         <Text style={styles.label}>인스타그램</Text>
-                        <Text style={styles.value}>@{venue.instagramAccount}</Text>
+                        <Pressable
+                            onPress={() =>
+                                Linking.openURL(
+                                    `https://www.instagram.com/${venue.instagram_account}`
+                                )
+                            }
+                        >
+                            <Text style={styles.link}>@{venue.instagram_account}</Text>
+                        </Pressable>
                     </View>
 
+                    {/* 주소 */}
                     <View style={styles.row}>
                         <Text style={styles.label}>주소</Text>
                         <View style={styles.valueWithIcon}>
-                            <Text
-                                style={styles.value}
-                                numberOfLines={1}
-                                ellipsizeMode="tail"
-                            >
+                            <Text style={styles.value} numberOfLines={1} ellipsizeMode="tail">
                                 {venue.address}
                             </Text>
                             <Pressable
@@ -104,11 +109,10 @@ export default function VenueDetailPage() {
                             >
                                 <IcClipboard width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} />
                             </Pressable>
-
                         </View>
                     </View>
 
-                    {/* 네이버 지도 */}
+                    {/* 지도 */}
                     <View style={styles.mapContainer}>
                         <NaverMapView
                             style={styles.map}
@@ -124,62 +128,85 @@ export default function VenueDetailPage() {
                         </NaverMapView>
                     </View>
 
+                    {/* 예정 공연 */}
                     <View style={styles.rowColumn}>
                         <Text style={styles.label}>예정 공연</Text>
-                        <FlatList
-                            data={venue.upcomingPerformances}
-                            renderItem={({ item }) => (
-                                <PerformanceCard
-                                    type="history"
-                                    title={item.title}
-                                    date={item.date}
-                                    posterUrl={item.posterUrl}
-                                    onPress={() => router.push(`/performance/${item.id}`)}
-                                />
-                            )}
-                            keyExtractor={(item) => item.id}
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.list}
-                        />
+                        {venue.upcomingPerformance?.length ? (
+                            <FlatList
+                                data={(venue.upcomingPerformance ?? []).map(p => ({
+                                    id: p.id.toString(),
+                                    title: p.title,
+                                    date: p.date ?? "",
+                                    posterUrl: p.image_url,
+                                }))}
+                                renderItem={({ item }) => (
+                                    <PerformanceCard
+                                        type="history"
+                                        title={item.title}
+                                        date={getDateFromDateString(item.date)}
+                                        posterUrl={item.posterUrl}
+                                        onPress={() => router.push(`/performance/${item.id}`)}
+                                    />
+                                )}
+                                keyExtractor={(item) => item.id.toString()}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                            />
+                        ) : (
+                            <Text style={styles.noPerformanceText}>
+                                예정된 공연이 없습니다.
+                            </Text>
+                        )}
                     </View>
 
+                    {/* 지난 공연 */}
                     <View style={styles.rowColumn}>
                         <Text style={styles.label}>지난 공연</Text>
-                        <FlatList
-                            data={venue.upcomingPerformances}
-                            renderItem={({ item }) => (
-                                <PerformanceCard
-                                    type="history"
-                                    title={item.title}
-                                    date={item.date}
-                                    posterUrl={item.posterUrl}
-                                    onPress={() => router.push(`/performance/${item.id}`)}
-                                />
-                            )}
-                            keyExtractor={(item) => item.id}
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.list}
-                        />
+                        {venue.pastPerformance?.length ? (
+                            <FlatList
+                                data={(venue.pastPerformance ?? []).map(p => ({
+                                    id: p.id.toString(),
+                                    title: p.title,
+                                    date: p.date ?? "",
+                                    posterUrl: p.image_url,
+                                }))}
+                                renderItem={({ item }) => (
+                                    <PerformanceCard
+                                        type="history"
+                                        title={item.title}
+                                        date={getDateFromDateString(item.date)}
+                                        posterUrl={item.posterUrl}
+                                        onPress={() => router.push(`/performance/${item.id}`)}
+                                    />
+                                )}
+                                keyExtractor={(item) => item.id.toString()}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                            />
+                        ) : (
+                            <Text style={styles.noPerformanceText}>
+                                지난 공연이 없습니다.
+                            </Text>
+                        )}
                     </View>
 
+                    {/* 리뷰 */}
                     <View style={styles.rowColumn}>
                         <Text style={styles.label}>리뷰</Text>
                         <FlatList
-                            data={venue.reviews.slice(0, 2)} // 최신순 2개만
+                            data={reviews.slice(0, 2)} // 최대 2개만 보여줌
                             renderItem={({ item }) => (
-                                <ReviewCard
-                                    userProfile={item.userProfile}
-                                    userName={item.userName}
+                                <ReviewPrevCard
+                                    userProfile={item.user?.profile_url}
+                                    userName={item.user?.nickname || "익명"}
                                     content={item.content}
                                 />
                             )}
-                            keyExtractor={(item) => item.id}
+                            keyExtractor={(item) => item.id.toString()}
                             horizontal
                             showsHorizontalScrollIndicator={false}
                             ListFooterComponent={
-                                <ReviewCard
+                                <ReviewPrevCard
                                     isMoreCard
                                     onPress={() => router.push(`/venue/${id}/reviews`)}
                                 />
@@ -195,77 +222,22 @@ export default function VenueDetailPage() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.white
-    },
+    container: { flex: 1, backgroundColor: Theme.colors.white },
+    topSection: { flexDirection: "row", alignItems: "center", padding: Theme.spacing.md },
+    profile: { width: 90, height: 90, borderRadius: 45, marginRight: Theme.spacing.md },
+    venueName: { fontWeight: Theme.fontWeights.bold, fontSize: Theme.fontSizes.lg, color: Theme.colors.black },
+    separator: { borderBottomWidth: 1, borderBottomColor: Theme.colors.lightGray, },
+    bottomSection: { padding: Theme.spacing.md },
+    row: { flexDirection: "row", alignItems: "center", },
+    rowColumn: { marginBottom: Theme.spacing.md },
+    label: { width: "25%", fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold, paddingVertical: Theme.spacing.md },
+    valueWithIcon: { flex: 1, flexDirection: "row", alignItems: "center" },
+    value: { flex: 1, fontSize: Theme.fontSizes.base, color: Theme.colors.black, marginRight: Theme.spacing.sm },
+    link: { fontSize: Theme.fontSizes.base, textDecorationLine: "underline" },
+    clipboardIcon: { marginLeft: Theme.spacing.xs },
+    list: { marginRight: Theme.spacing.md },
+    mapContainer: { height: 200, marginBottom: Theme.spacing.md, overflow: "hidden" },
+    map: { flex: 1 },
+    noPerformanceText: { fontSize: Theme.fontSizes.base, color: Theme.colors.gray, },
 
-    // 상단 섹션
-    topSection: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: Theme.spacing.md,
-    },
-    profile: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        marginRight: Theme.spacing.md,
-    },
-    venueName: {
-        fontWeight: Theme.fontWeights.semibold,
-        fontSize: Theme.fontSizes.lg,
-        color: Theme.colors.black,
-    },
-
-    separator: {
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.lightGray,
-        marginBottom: Theme.spacing.md,
-    },
-
-    // 상세 정보
-    bottomSection: {
-        //padding: Theme.spacing.md,
-    },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: Theme.spacing.md,
-    },
-    rowColumn: {
-        padding: Theme.spacing.md,
-    },
-    label: {
-        width: "25%",
-        fontSize: Theme.fontSizes.base,
-        fontWeight: Theme.fontWeights.semibold,
-    },
-    valueWithIcon: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    value: {
-        flex: 1,
-        fontSize: Theme.fontSizes.base,
-        color: Theme.colors.black,
-        marginRight: Theme.spacing.sm,
-    },
-    clipboardIcon: {
-        marginLeft: Theme.spacing.xs,
-    },
-
-    list: {
-        marginRight: Theme.spacing.md,
-    },
-    mapContainer: {
-        height: 200,
-        marginHorizontal: Theme.spacing.md,
-        marginBottom: Theme.spacing.md,
-        overflow: 'hidden',
-    },
-    map: {
-        flex: 1,
-    },
 });
