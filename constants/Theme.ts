@@ -15,7 +15,7 @@ export default {
     shadow: 'rgba(0,0,0,0.2)',
 
     // 테마 색상
-    themeOrange: '#F68B4D',
+    themeOrange: '#3C9C58',
   },
 
   fontSizes: {

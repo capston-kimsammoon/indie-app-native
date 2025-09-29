@@ -1,96 +1,70 @@
-import React from "react";
-import { View, Text, Image, StyleSheet, Pressable } from "react-native";
-import Theme from "@/constants/Theme";
-import { useRouter } from "expo-router";
+import React from 'react';
+import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
+import { ReviewItem } from '@/types/review';
+import IcClose from '@/assets/icons/ic-close.svg';
+import Theme from '@/constants/Theme';
+import Images from '@/components/common/Images';
 
-import IcChevronRight from "@/assets/icons/ic-chevron-right.svg";
+interface Props {
+  item: ReviewItem;
+  onDelete?: (review: ReviewItem) => void;
+  showLike?: boolean; // 전체 리뷰 페이지에서는 false
+}
 
-type ReviewCardProps = {
-    userProfile: any;
-    userName: string;
-    content: string;
-    isMoreCard?: boolean;
-    onPress?: () => void;
-};
+export default function ReviewCard({ item, onDelete, showLike = true }: Props) {
+  return (
+    <View style={styles.card}>
+      {item.is_mine && onDelete && (
+        <Pressable style={styles.deleteBtn} onPress={() => onDelete(item)}>
+          <IcClose width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} fill={Theme.colors.darkGray} />
+        </Pressable>
+      )}
 
-export default function ReviewCard({ userProfile, userName, content, isMoreCard = false, onPress }: ReviewCardProps) {
-    const router = useRouter();
+      {item.images?.length > 0 && <Images images={item.images} imageSize={80} />}
 
-    if (isMoreCard) {
-        return (
-            <Pressable style={styles.moreCard} onPress={onPress}>
-                <Text style={styles.moreText}>리뷰</Text>
-                <View style={styles.moreTextWithIcon}>
-                    <Text style={styles.moreText}>더보기</Text>
-                    <IcChevronRight />
-                </View>
-            </Pressable>
-        );
-    }
+      <Text style={styles.content}>{item.content}</Text>
 
-    return (
-        <View style={styles.card}>
-            <View style={styles.profileInfo}>
-                <Image source={{uri: userProfile}} style={styles.profile} />
-                <Text style={styles.userName}>{userName}</Text>
-            </View>
-            <Text style={styles.content} numberOfLines={1}>{content}</Text>
+      <View style={styles.footer}>
+        <View style={styles.userInfo}>
+          <Image
+            source={{ uri: item.profile_url || 'https://via.placeholder.com/80' }}
+            style={styles.avatar}
+          />
+          <View style={{ marginLeft: 8 }}>
+            <Text style={styles.author}>{item.author}</Text>
+            <Text style={styles.date}>{item.created_at?.slice(0, 10).replace(/-/g, '.')}</Text>
+            {item.venue && <Text style={styles.venue}>{item.venue.name}</Text>}
+          </View>
         </View>
-    );
+
+        {showLike && (
+          <View style={styles.likeInfo}>
+            <Text style={styles.likeCount}>{item.like_count}</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    card: {
-        width: 200,
-        justifyContent: "center",
-        padding: Theme.spacing.md,
-        marginRight: Theme.spacing.md,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: Theme.colors.lightGray,
-        backgroundColor: Theme.colors.white,
-    },
-    profileInfo: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: Theme.spacing.sm,
-    },
-    profile: {
-        width: 25,
-        height: 25,
-        borderRadius: 15,
-        marginRight: Theme.spacing.sm,
-    },
-    userName: {
-        fontSize: Theme.fontSizes.sm,
-        fontWeight: Theme.fontWeights.regular,
-        color: Theme.colors.black,
-    },
-    content: {
-        fontSize: Theme.fontSizes.sm,
-        fontWeight: Theme.fontWeights.medium,
-        color: Theme.colors.darkGray,
-    },
-    moreCard: {
-        width: 80,
-        height: 80,
-        justifyContent: "center",
-        alignItems: "flex-start",
-        paddingLeft: Theme.spacing.md,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: Theme.colors.lightGray,
-        backgroundColor: Theme.colors.white,
-    },
-    moreText: {
-        fontSize: Theme.fontSizes.sm,
-        fontWeight: Theme.fontWeights.regular,
-        color: Theme.colors.black,
-        marginRight: Theme.spacing.xs,
-        marginVertical: Theme.spacing.xs,
-    },
-    moreTextWithIcon: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
+  card: {
+    backgroundColor: Theme.colors.white,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.lightGray,
+    position: 'relative',
+  },
+  deleteBtn: { position: 'absolute', top: 6, right: 6, zIndex: 10 },
+  content: { fontSize: Theme.fontSizes.base, color: Theme.colors.black, marginBottom: Theme.spacing.md },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  userInfo: { flexDirection: 'row', alignItems: 'center' },
+  avatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: Theme.colors.lightGray },
+  author: { fontWeight: Theme.fontWeights.medium, fontSize: Theme.fontSizes.base, color: Theme.colors.black },
+  date: { fontSize: Theme.fontSizes.sm, color: Theme.colors.gray },
+  venue: { fontSize: Theme.fontSizes.sm, color: Theme.colors.themeOrange },
+  likeInfo: { flexDirection: 'row', alignItems: 'center' },
+  likeCount: { marginLeft: Theme.spacing.xs, fontSize: Theme.fontSizes.sm },
 });

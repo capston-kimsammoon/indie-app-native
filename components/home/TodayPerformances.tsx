@@ -1,11 +1,13 @@
 // components/home/TodayPerformances.tsx
-import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Dimensions } from "react-native";
-import { useRef, useState } from "react";
+import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Dimensions, ActivityIndicator } from "react-native";
+import { useRef, useState, useEffect } from "react";
 import Theme from "@/constants/Theme";
 import IcChevronLeft from "@/assets/icons/ic-chevron-left.svg";
 import IcChevronRight from "@/assets/icons/ic-chevron-right.svg";
 
 import { getToday, getDateFromDateString, getWeekDayFromDateString } from "@/utils/dateUtils";
+import { fetchTodayPerformances } from "@/api/PerformanceApi";
+import { Performance } from "@/types/performance";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = Theme.spacing.md * 2;
@@ -29,9 +31,35 @@ const LOOPED_ITEMS = [
 
 export default function TodayPerformances() {
   const flatListRef = useRef<FlatList>(null);
-  const [currentIndex, setCurrentIndex] = useState(0); // 실제 데이터 기준 0~n-1
+  const [items, setItems] = useState<Performance[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   const IcChevronSize = Theme.iconSizes.md;
+
+  // API 호출
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const data = await fetchTodayPerformances();
+      setItems(data);
+      setLoading(false);
+
+      // FlatList loop용 첫 위치 보정
+      if (data.length > 0) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({ index: 1, animated: false });
+        }, 0);
+      }
+    };
+    load();
+  }, []);
+
+  // loop 데이터
+  const loopedItems =
+    items.length > 0
+      ? [items[items.length - 1], ...items, items[0]]
+      : [];
 
   // 스크롤 끝났을 때 보정
   const onMomentumScrollEnd = (e: any) => {
@@ -39,32 +67,50 @@ export default function TodayPerformances() {
     const index = Math.round(offset / BANNER_WIDTH);
 
     if (index === 0) {
-      // 첫 복제 카드 → 마지막 실제 카드로 순간 이동
-      flatListRef.current?.scrollToIndex({ index: TODAY_ITEMS.length, animated: false });
-      setCurrentIndex(TODAY_ITEMS.length - 1);
-    } else if (index === LOOPED_ITEMS.length - 1) {
-      // 마지막 복제 카드 → 첫 실제 카드로 순간 이동
+      flatListRef.current?.scrollToIndex({ index: items.length, animated: false });
+      setCurrentIndex(items.length - 1);
+    } else if (index === loopedItems.length - 1) {
       flatListRef.current?.scrollToIndex({ index: 1, animated: false });
       setCurrentIndex(0);
     } else {
-      setCurrentIndex(index - 1); // 실제 데이터 인덱스
+      setCurrentIndex(index - 1);
     }
   };
 
   // 버튼 클릭 시 한 칸 이동
   const goToPrev = () => {
+    if (items.length === 0) return;
     let newIndex = currentIndex - 1;
-    if (newIndex < 0) newIndex = TODAY_ITEMS.length - 1;
-    flatListRef.current?.scrollToIndex({ index: newIndex + 1, animated: true }); // looped +1
+    if (newIndex < 0) newIndex = items.length - 1;
+    flatListRef.current?.scrollToIndex({ index: newIndex + 1, animated: true });
     setCurrentIndex(newIndex);
   };
 
   const goToNext = () => {
+    if (items.length === 0) return;
     let newIndex = currentIndex + 1;
-    if (newIndex >= TODAY_ITEMS.length) newIndex = 0;
-    flatListRef.current?.scrollToIndex({ index: newIndex + 1, animated: true }); // looped +1
+    if (newIndex >= items.length) newIndex = 0;
+    flatListRef.current?.scrollToIndex({ index: newIndex + 1, animated: true });
     setCurrentIndex(newIndex);
   };
+
+  if (loading) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.title}>{getToday()} 공연</Text>
+        <ActivityIndicator size="large" color={Theme.colors.themeOrange} />
+      </View>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.title}>{getToday()} 공연</Text>
+        <Text style={{ color: Theme.colors.gray }}>오늘 예정된 공연이 없습니다.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.section}>
@@ -73,14 +119,16 @@ export default function TodayPerformances() {
       <View style={styles.carouselWrapper}>
         <FlatList
           ref={flatListRef}
-          data={LOOPED_ITEMS}
+          data={loopedItems}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <Image source={{ uri: item.posterUrl }} style={styles.poster} resizeMode="cover" />
+              <Image source={{ uri: item.thumbnail }} style={styles.poster} resizeMode="cover" />
               <View style={styles.info}>
                 <Text style={styles.performanceTitle} numberOfLines={1}>{item.title}</Text>
                 <Text style={styles.venue}>{item.venue}</Text>
-                <Text style={styles.date}>{getDateFromDateString(item.date)} {getWeekDayFromDateString(item.date)}</Text>
+                <Text style={styles.date}>
+                  {getDateFromDateString(item.date)} {getWeekDayFromDateString(item.date)}
+                </Text>
               </View>
             </View>
           )}
@@ -90,7 +138,7 @@ export default function TodayPerformances() {
           snapToInterval={BANNER_WIDTH}
           decelerationRate="fast"
           showsHorizontalScrollIndicator={false}
-          initialScrollIndex={1} // 실제 첫 카드
+          initialScrollIndex={1}
           getItemLayout={(_, index) => ({
             length: BANNER_WIDTH,
             offset: BANNER_WIDTH * index,
@@ -99,19 +147,17 @@ export default function TodayPerformances() {
           onMomentumScrollEnd={onMomentumScrollEnd}
         />
 
-        {/* 왼쪽 화살표 */}
+        {/* 좌우 버튼 */}
         <TouchableOpacity style={[styles.iconLeftButton, { left: 0 }]} onPress={goToPrev}>
           <IcChevronLeft width={IcChevronSize} height={IcChevronSize} />
         </TouchableOpacity>
-
-        {/* 오른쪽 화살표 */}
         <TouchableOpacity style={[styles.iconRightButton, { right: 0 }]} onPress={goToNext}>
           <IcChevronRight width={IcChevronSize} height={IcChevronSize} />
         </TouchableOpacity>
 
         {/* 인디케이터 */}
         <View style={styles.indicator}>
-          {TODAY_ITEMS.map((_, i) => (
+          {items.map((_, i) => (
             <View key={i} style={[styles.line, currentIndex === i && styles.activeLine]} />
           ))}
         </View>
@@ -159,7 +205,7 @@ const styles = StyleSheet.create({
     fontWeight: Theme.fontWeights.semibold,
     color: Theme.colors.black,
     marginBottom: Theme.spacing.md,
-    flexWrap: "wrap", 
+    flexWrap: "wrap",
   },
   venue: {
     fontSize: Theme.fontSizes.sm,

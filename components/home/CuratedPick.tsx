@@ -1,41 +1,37 @@
-// 6. 김삼문 pick!
-// components/home/CuratedPick.tsx
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
+import MagazineCard from "@/components/cards/MagazineCard";
+import { fetchMagazineList } from "@/api/MagazineApi";
+import { MagazineItem } from "@/types/magazine";
 
-const PICK_ITEMS = [
-  {
-    id: "1",
-    title: "김삼문 Pick 1",
-    content: "이번 주 추천 공연 정보와 간단 설명",
-    posterUrl: "https://picsum.photos/400/200",
-  },
-];
-
-export default function CuratedPick({ onPress }: { onPress?: () => void }) {
+export default function CuratedPick() {
   const router = useRouter();
-  const pickItem = PICK_ITEMS[0];
+  const [pickItem, setPickItem] = useState<MagazineItem | null>(null);
+
+  useEffect(() => {
+    fetchMagazineList({ limit: 1 }) // 최신 1건
+      .then((res) => setPickItem(res[0] || null))
+      .catch((err) => console.error("김삼문 pick 조회 실패:", err));
+  }, []);
+
+  if (!pickItem) return null;
 
   return (
     <View style={styles.section}>
       <Text style={styles.title}>김삼문 pick!</Text>
-        <PerformanceCard
-          type="pick"
-          title={pickItem.title}
-          content={pickItem.content}
-          posterUrl={pickItem.posterUrl}
-          onPress={() => router.push(`/magazine`)}
-        />
+      <MagazineCard
+          item={pickItem}
+          onPress={() => router.push(`/magazine/${pickItem.id}`)}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: {
-    padding: Theme.spacing.md,
-  },
+  section: { padding: Theme.spacing.md },
   title: {
     fontSize: Theme.fontSizes.lg,
     fontWeight: Theme.fontWeights.semibold,
