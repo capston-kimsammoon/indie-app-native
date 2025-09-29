@@ -1,5 +1,5 @@
 // /app/(tabs)/performance/index.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useNavigation } from "@react-navigation/native";
@@ -10,6 +10,7 @@ import RegionFilterModal from "@/components/filters/RegionFilterModal";
 import PerformanceCard from "@/components/cards/PerformanceCard";
 
 import { getDateFromDateString, getWeekDayFromDateString } from "@/utils/dateUtils";
+import { fetchPerformances } from "@/api/PerformanceApi";
 
 import Theme from "@/constants/Theme";
 import IcCalendar from "@/assets/icons/ic-calendar.svg";
@@ -23,31 +24,46 @@ type Performance = {
   posterUrl: string;
 };
 
-const MOCK_PERFORMANCES: Performance[] = [
-  { id: "1", title: "A Place Called Sound", venue: "코멘터리 사운드", date:"2025-09-14", region: "경기", posterUrl: "https://picsum.photos/90/120"},
-  { id: "2", title: "bbb", venue: "코멘터리 사운드", date:"2025-09-16", region: "부산", posterUrl: "https://picsum.photos/90/120" },
-  { id: "3", title: "ccc", venue: "코멘터리 사운드", date:"2025-09-15", region: "서울", posterUrl: "https://picsum.photos/90/120" },
-];
-
 export default function PerformanceListPage() {
   const navigation = useNavigation();
   const router = useRouter();
+
   const [sort, setSort] = useState("최근등록순");
   const [regions, setRegions] = useState<string[]>(["전체"]);
 
   const [sortVisible, setSortVisible] = useState(false);
   const [regionVisible, setRegionVisible] = useState(false);
 
+  const [performances, setPerformances] = useState<Performance[]>([]);
+
+  const loadPerformances = async () => {
+    try {
+      const res = await fetchPerformances(regions, sort, 1, 20); 
+      setPerformances(
+        res.performances.map((p: any) => ({
+          id: String(p.id),
+          title: p.title,
+          venue: p.venue,
+          date: p.date,
+          region: p.region || "알 수 없음",
+          posterUrl: p.thumbnail,
+        }))
+      );
+    } catch (err) {
+      setPerformances([]);
+    }
+  };
+
+  // 지역이나 정렬 변경 시 다시 호출
+  useEffect(() => {
+    loadPerformances();
+  }, [regions, sort]);
+
   const getRegionLabel = () => {
     if (regions.includes("전체") || regions.length === 0) return "지역: 전체";
     if (regions.length <= 2) return `지역: ${regions.join(", ")}`;
     return `지역: ${regions.slice(0, 2).join(", ")} 외 ${regions.length - 2}곳`;
   };
-
-  const filteredPerformances = MOCK_PERFORMANCES.filter((p) => {
-    if (regions.includes("전체")) return true;
-    return regions.includes(p.region);
-  });
 
   return (
     <View style={styles.container}>
@@ -67,7 +83,7 @@ export default function PerformanceListPage() {
 
       {/* 공연 목록 */}
       <FlatList
-        data={filteredPerformances}
+        data={performances}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <PerformanceCard

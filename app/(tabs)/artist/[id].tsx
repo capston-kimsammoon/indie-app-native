@@ -1,90 +1,120 @@
-// app/(tabs)/artist/[id].tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     View,
     Text,
     StyleSheet,
     Image,
     ScrollView,
-    Linking,
     Pressable,
     FlatList,
+    Linking,
+    ActivityIndicator,
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
+import { getDateFromDateString } from "@/utils/dateUtils";
+import { useArtists } from '@/context/ArtistContext';
 
 import IcHeartOutline from "@/assets/icons/ic-heart-outline.svg";
 import IcHeartFilled from "@/assets/icons/ic-heart-filled.svg";
 import IcBellOff from "@/assets/icons/ic-bell-off.svg";
 import IcBellOn from "@/assets/icons/ic-bell-on.svg";
 
-type RouteParams = { id: string };
+import { fetchArtistDetail } from "@/api/ArtistApi";
+import { like, unlike, TYPE_ARTIST as TYPE_LIKE_ARTIST } from "@/api/LikeApi";
+import { enableAlert, disableAlert, TYPE_ARTIST as TYPE_ALERT_ARTIST } from "@/api/AlertApi";
+import { ArtistDetailResponse } from "@/types/artist";
 
-const MOCK_DETAIL = {
-    id: "1",
-    name: "김삼문과아이들",
-    profileUrl: "https://picsum.photos/100/100",
-    spotifyUrl: "https://open.spotify.com/",
-    instagramAccount: "kimthreemun",
-    upcomingPerformances: [
-        { id: "1", title: "시간의 목소리", date: "2025.05.10", posterUrl: "https://picsum.photos/90/120" },
-        { id: "2", title: "우리의 16번째 절기 ‘추분’", date: "2025.05.10", posterUrl: "https://picsum.photos/100/100" },
-        { id: "3", title: "시간의 목소리", date: "2025.05.10", posterUrl: "https://picsum.photos/100/100" },
-    ],
-    pastPerformances: [
-        { id: "1", title: "시간의 목소리~", date: "2025.05.10", posterUrl: "https://picsum.photos/100/100" },
-        { id: "2", title: "우리의 16번째 절기 ‘추분’", date: "2025.05.10", posterUrl: "https://picsum.photos/100/100" },
-        { id: "3", title: "시간의 목소리", date: "2025.05.10", posterUrl: "https://picsum.photos/100/100" },
-    ],
-};
+type RouteParams = { id: string };
 
 export default function ArtistDetailPage() {
     const route = useRoute();
     const router = useRouter();
     const { id } = route.params as RouteParams;
 
-    const artist = MOCK_DETAIL;
-    const iconHeartSize = Theme.iconSizes.xs;
+    const [artist, setArtist] = useState<ArtistDetailResponse | null>(null);
+    const [liked, setLiked] = useState(false);
+    const [isNotified, setIsNotified] = useState(false);
+    const { artists, setArtists } = useArtists();
+
+    const iconHeartSize = Theme.iconSizes.sm;
     const iconBellSize = Theme.iconSizes.xs;
 
-    // 좋아요 상태 관리
-    const [liked, setLiked] = useState(false);
-    const [likeCount, setLikeCount] = useState();
+    // 아티스트 상세 조회
+    useEffect(() => {
+        const loadDetail = async () => {
+            try {
+                const data = await fetchArtistDetail(Number(id));
+                setArtist(data);
+                setLiked(data.isLiked);
+                setIsNotified(data.isNotified);
+            } catch (err) {
+                console.error("아티스트 상세 조회 실패:", err);
+            }
+        };
+        loadDetail();
+    }, [id]);
 
-    // 알림 상태 관리
-    const [isNotified, setIsNotified] = useState(false);
+    // 찜 ON/OFF
+    const handleLikePress = async () => {
+        if (!artist) return;
 
-    const [likedArtists, setLikedArtists] = useState<{ [key: string]: boolean }>({});
+        const newLiked = !artist.isLiked;
 
+        try {
+            if (newLiked) {
+                await like(TYPE_LIKE_ARTIST, artist.id); // 찜 ON
+            } else {
+                await unlike(TYPE_LIKE_ARTIST, artist.id); // 찜 OFF
+            }
+            setLiked(newLiked);
+            
+            // 서버 요청 성공 시 상태 업데이트
+            setArtist(prev => prev && { ...prev, isLiked: newLiked });
+            setArtists(prev =>
+                prev.map(a => (a.id === artist.id ? { ...a, isLiked: newLiked } : a))
+            );
+        } catch (err: any) {
+            console.error("찜 처리 실패:", err.response?.data || err.message);
 
-    const handleLikePress = () => {
-        if (liked) {
-            setLiked(false);
-        } else {
-            setLiked(true);
+            // 서버 실패 시 UI 롤백
+            setArtist(prev => prev && { ...prev, isLiked: artist.isLiked });
         }
     };
 
-    const toggleLike = (id: string) => {
-        setLikedArtists((prev) => ({
-            ...prev,
-            [id]: !prev[id],
-        }));
+
+    // 알림 ON/OFF
+    const handleNotifyPress = async () => {
+        if (!artist) return;
+        try {
+            if (!isNotified) {
+                await enableAlert(TYPE_ALERT_ARTIST, artist.id);
+                setIsNotified(true);
+            } else {
+                await disableAlert(TYPE_ALERT_ARTIST, artist.id);
+                setIsNotified(false);
+            }
+        } catch (err) {
+            console.error("알림 처리 실패:", err);
+        }
     };
+
+    if (!artist)
+        return <ActivityIndicator size="large" style={{ flex: 1 }} />;
+
+    const profileImage = artist.image_url || "https://via.placeholder.com/80";
 
     return (
         <View style={{ flex: 1 }}>
-
             <ScrollView style={styles.container}>
                 {/* 상단 아티스트 정보 */}
                 <View style={styles.topSection}>
-                    {/* 프로필 + 좋아요 */}
                     <View style={styles.profileWrapper}>
-                        <Image source={{uri: artist.profileUrl}} style={styles.profile} />
-
+                        <Image source={{ uri: profileImage }} style={styles.profile} />
+                        {/* 찜 버튼 */}
                         <Pressable style={styles.heartButton} onPress={handleLikePress}>
                             {liked ? (
                                 <IcHeartFilled width={iconHeartSize} height={iconHeartSize} />
@@ -94,73 +124,96 @@ export default function ArtistDetailPage() {
                         </Pressable>
                     </View>
 
-
-                    {/* 아티스트 텍스트 정보 */}
                     <View style={styles.topInfo}>
                         <Text style={styles.name}>{artist.name}</Text>
-                        <Pressable style={styles.notifyButton}>
+                        {/* 예매 알림 버튼 */}
+                        <Pressable style={styles.notifyButton} onPress={handleNotifyPress}>
                             <Text style={styles.notifyText}>공연알림</Text>
-                            {isNotified ? <IcBellOff width={iconBellSize} height={iconBellSize} color={Theme.colors.gray} /> : <IcBellOn width={iconBellSize} height={iconBellSize} color={Theme.colors.gray} />}
+                            {isNotified ? (
+                                <IcBellOn width={iconBellSize} height={iconBellSize} fill={Theme.colors.gray} />
+                            ) : (
+                                <IcBellOff width={iconBellSize} height={iconBellSize} fill={Theme.colors.gray} />
+                            )}
                         </Pressable>
                     </View>
                 </View>
 
                 <View style={styles.separator} />
 
+                {/* 링크 */}
                 <View style={styles.bottomSection}>
-
                     <View style={styles.row}>
                         <Text style={styles.label}>스포티파이</Text>
-                        <Pressable onPress={() => Linking.openURL(artist.spotifyUrl)}>
+                        <Pressable onPress={() => Linking.openURL(artist.spotify_url)}>
                             <Text style={styles.link}>바로가기</Text>
                         </Pressable>
                     </View>
 
                     <View style={styles.row}>
                         <Text style={styles.label}>인스타그램</Text>
-                        <Pressable onPress={() => Linking.openURL(`https://www.instagram.com/${artist.instagramAccount}`)}>
-                            <Text style={styles.link}>@{artist.instagramAccount}</Text>
+                        <Pressable
+                            onPress={() =>
+                                Linking.openURL(
+                                    `https://www.instagram.com/${artist.instagram_account}`
+                                )
+                            }
+                        >
+                            <Text style={styles.link}>@{artist.instagram_account}</Text>
                         </Pressable>
                     </View>
 
+                    {/* 예정 공연 */}
                     <View style={styles.rowColumn}>
                         <Text style={styles.label}>예정 공연</Text>
-                        <FlatList
-                            data={artist.upcomingPerformances}
-                            renderItem={({ item }) => (
-                                <PerformanceCard
-                                    type="history"
-                                    title={item.title}
-                                    date={item.date}
-                                    posterUrl={item.posterUrl}
-                                    onPress={() => router.push(`/performance/${item.id}`)}
-                                />
-                            )}
-                            keyExtractor={(item) => item.id}
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.list}
-                        />
+                        {artist.upcomingPerformances?.length ? (
+                            <FlatList
+                                data={artist.upcomingPerformances}
+                                renderItem={({ item }) => (
+                                    <PerformanceCard
+                                        type="history"
+                                        title={item.title}
+                                        date={getDateFromDateString(item.date)}
+                                        posterUrl={item.image_url}
+                                        onPress={() => router.push(`/performance/${item.id}`)}
+                                    />
+                                )}
+                                keyExtractor={(item) => item.id.toString()}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.list}
+                            />
+                        ) : (
+                            <Text style={styles.noPerformanceText}>
+                                예정된 공연이 없습니다.
+                            </Text>
+                        )}
                     </View>
 
+                    {/* 지난 공연 */}
                     <View style={styles.rowColumn}>
                         <Text style={styles.label}>지난 공연</Text>
-                        <FlatList
-                            data={artist.upcomingPerformances}
-                            renderItem={({ item }) => (
-                                <PerformanceCard
-                                    type="history"
-                                    title={item.title}
-                                    date={item.date}
-                                    posterUrl={item.posterUrl}
-                                    onPress={() => router.push(`/performance/${item.id}`)}
-                                />
-                            )}
-                            keyExtractor={(item) => item.id}
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.list}
-                        />
+                        {artist.pastPerformances?.length ? (
+                            <FlatList
+                                data={artist.pastPerformances}
+                                renderItem={({ item }) => (
+                                    <PerformanceCard
+                                        type="history"
+                                        title={item.title}
+                                        date={getDateFromDateString(item.date)}
+                                        posterUrl={item.image_url}
+                                        onPress={() => router.push(`/performance/${item.id}`)}
+                                    />
+                                )}
+                                keyExtractor={(item) => item.id.toString()}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.list}
+                            />
+                        ) : (
+                            <Text style={styles.noPerformanceText}>
+                                지난 공연이 없습니다.
+                            </Text>
+                        )}
                     </View>
                 </View>
             </ScrollView>
@@ -169,31 +222,17 @@ export default function ArtistDetailPage() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.white
-    },
+    container: { flex: 1, backgroundColor: Theme.colors.white },
 
-    // 상단 섹션
-    topSection: {
-        flexDirection: "row",
-        padding: Theme.spacing.md,
-    },
-    profileWrapper: {
-        alignItems: "center",
-        marginRight: Theme.spacing.md
-    },
-    profile: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-    },
+    topSection: { flexDirection: "row", padding: Theme.spacing.md },
+    profileWrapper: { alignItems: "center", marginRight: Theme.spacing.md },
+    profile: { width: 90, height: 90, borderRadius: 45 },
     heartButton: {
         position: "absolute",
         bottom: 0,
         right: 0,
-        width: Theme.iconSizes.md,
-        height: Theme.iconSizes.md,
+        width: Theme.iconSizes.lg,
+        height: Theme.iconSizes.lg,
         borderRadius: 16,
         borderWidth: 1,
         borderColor: Theme.colors.lightGray,
@@ -201,16 +240,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-
-    topInfo: {
-        flex: 1,
-        justifyContent: "center"
-    },
-    name: {
-        fontSize: Theme.fontSizes.lg,
-        fontWeight: Theme.fontWeights.bold,
-        marginBottom: Theme.spacing.sm,
-    },
+    topInfo: { flex: 1, justifyContent: "center" },
+    name: { fontSize: Theme.fontSizes.lg, fontWeight: Theme.fontWeights.bold, marginBottom: Theme.spacing.sm },
     notifyButton: {
         flexDirection: "row",
         alignItems: "center",
@@ -221,45 +252,14 @@ const styles = StyleSheet.create({
         borderColor: Theme.colors.lightGray,
         alignSelf: "flex-start",
     },
-    notifyText: {
-        color: Theme.colors.gray,
-        marginRight: Theme.spacing.xs,
-    },
-    separator: {
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.lightGray,
-    },
+    notifyText: { color: Theme.colors.gray, marginRight: Theme.spacing.xs },
+    separator: { borderBottomWidth: 1, borderBottomColor: Theme.colors.lightGray },
 
-    bottomSection: {
-        padding: Theme.spacing.md,
-    },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    rowColumn: {
-    },
-    label: {
-        width: "25%",
-        fontSize: Theme.fontSizes.base,
-        fontWeight: Theme.fontWeights.semibold,
-        paddingVertical: Theme.spacing.md,
-    },
-    valueWithIcon: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    value: {
-        fontSize: Theme.fontSizes.base,
-        color: Theme.colors.black,
-        marginRight: Theme.spacing.xs,
-    },
-
-    // 링크
+    bottomSection: { padding: Theme.spacing.md },
+    row: { flexDirection: "row", alignItems: "center" },
+    rowColumn: { marginBottom: Theme.spacing.md },
+    label: { width: "25%", fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold, paddingVertical: Theme.spacing.md },
     link: { fontSize: Theme.fontSizes.base, textDecorationLine: "underline" },
-
-    list: {
-        paddingRight: Theme.spacing.md,
-    },
+    list: { paddingRight: Theme.spacing.md },
+    noPerformanceText: { fontSize: Theme.fontSizes.base, color: Theme.colors.gray, },
 });

@@ -1,19 +1,25 @@
 // app/(tabs)/performance/[id].tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
     StyleSheet,
     Image,
     ScrollView,
-    Linking,
     Pressable,
     FlatList,
+    Linking,
+    Alert,
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import Header from "@/components/layout/Header";
+import { fetchPerformanceDetail } from "@/api/PerformanceApi";
+import { like, unlike, TYPE_PERFORMANCE as TYPE_LIKE_PERF } from "@/api/LikeApi";
+import { enableAlert, disableAlert, TYPE_PERFORMANCE as TYPE_ALERT_PERF } from "@/api/AlertApi";
+
+import { PerformanceDetailResponse } from "@/types/performance";
 import Theme from "@/constants/Theme";
 import { formatDateTime, calcDDay } from "@/utils/dateUtils";
 
@@ -25,76 +31,108 @@ import IcChevronRight from "@/assets/icons/ic-chevron-right.svg";
 
 type RouteParams = { id: string };
 
-const MOCK_DETAIL = {
-    id: "1",
-    title: "Ruby Rock SALON",
-    posterUrl: "https://picsum.photos/90/120",
-    date: new Date("2025-05-09"),
-    time: "20:00:00",
-    venue: { id: "1", name: "cafe PPnF", },
-    lineup: [
-        { id: "a", name: "푸롱이핑", profileUrl: "https://picsum.photos/100/100" },
-        { id: "b", name: "로얄 티니핑", profileUrl: "https://picsum.photos/100/100" },
-        { id: "c", name: "애플 이쁜핑", profileUrl: "https://picsum.photos/100/100" },
-    ],
-    price: "1,000원",
-    ticketOpen: new Date("2025-05-01"),
-    ticketOpenTime: "T21:00:00",
-    ticketLink: "https://www.melon.ticket",
-    detailLink: "https://www.instagram.com/kimthreemunnnnnnnnnnn", // 수정) 2열 이상일 때 1열을 label 위치와 맞추기
-    likes: 1004,
-};
-
 export default function PerformanceDetailPage() {
     const route = useRoute();
     const router = useRouter();
     const { id } = route.params as RouteParams;
 
-    const performance = MOCK_DETAIL; // 실제 DB 연동 시 id 기반 조회
-    const iconSize = Theme.iconSizes.xs;
+    const iconHeartSize = Theme.iconSizes.sm;
+    const iconBellSize = Theme.iconSizes.xs;
+    const iconChevronSize = Theme.iconSizes.xs;
 
-    // 좋아요 상태 관리
+    const [performance, setPerformance] = useState<PerformanceDetailResponse | null>(null);
     const [liked, setLiked] = useState(false);
-    const [likeCount, setLikeCount] = useState(performance.likes);
-
-    // 알림 상태 관리
+    const [likeCount, setLikeCount] = useState(0);
     const [isNotified, setIsNotified] = useState(false);
 
-    const handleLikePress = () => {
-        if (liked) {
-            setLiked(false);
-            setLikeCount(likeCount - 1);
-        } else {
-            setLiked(true);
-            setLikeCount(likeCount + 1);
+    // 공연 상세 조회
+    useEffect(() => {
+        const loadDetail = async () => {
+            try {
+                const data = await fetchPerformanceDetail(Number(id));
+                setPerformance(data);
+                setLiked(data.isLiked);
+                setIsNotified(data.isAlarmed);
+                setLikeCount(data.likeCount || 0);
+            } catch (err) {
+                console.error("공연 상세 조회 실패:", err);
+            }
+        };
+        loadDetail();
+    }, [id]);
+
+
+    // 찜 ON/OFF
+    const handleLikePress = async () => {
+        if (!performance) return;
+
+        try {
+            if (!liked) {
+                await like(TYPE_LIKE_PERF, performance.id);
+                setLiked(true);
+                setLikeCount(likeCount + 1);
+            } else {
+                await unlike(TYPE_LIKE_PERF, performance.id);
+                setLiked(false);
+                setLikeCount(likeCount - 1);
+            }
+        } catch (err) {
+            console.error('찜 처리 실패:', err);
         }
     };
 
+    // 예매 알림 버튼
+    const handleNotifyPress = async () => {
+        if (!performance) return;
+
+        try {
+            if (!isNotified) {
+                await enableAlert(TYPE_ALERT_PERF, performance.id);
+                setIsNotified(true);
+            } else {
+                await disableAlert(TYPE_ALERT_PERF, performance.id);
+                setIsNotified(false);
+            }
+        } catch (err) {
+            console.error('알림 처리 실패:', err);
+        }
+    };
+
+    if (!performance) return <Text>Loading...</Text>;
+
     return (
         <View style={{ flex: 1 }}>
-
             <ScrollView style={styles.container}>
                 {/* 상단 공연 정보 */}
                 <View style={styles.topSection}>
-                    {/* 포스터 + 좋아요 */}
                     <View style={styles.posterWrapper}>
                         <Image
-                            source={{ uri: performance.posterUrl }}
+                            source={{ uri: performance.posterUrl || "https://via.placeholder.com/90x120" }}
                             style={styles.poster}
                         />
+                        {/* 찜 버튼 */}
                         <Pressable style={styles.likesBox} onPress={handleLikePress}>
-                            {liked ? <IcHeartFilled width={iconSize} height={iconSize} /> : <IcHeartOutline width={iconSize} height={iconSize} />}
+                            {liked ? (
+                                <IcHeartFilled width={iconHeartSize} height={iconHeartSize} />
+                            ) : (
+                                <IcHeartOutline width={iconHeartSize} height={iconHeartSize} />
+                            )}
                             <Text style={styles.likeCount}>{likeCount.toLocaleString()}</Text>
                         </Pressable>
                     </View>
 
                     {/* 공연 텍스트 정보 */}
                     <View style={styles.topInfo}>
-                        <Text style={styles.dday}>{calcDDay(performance.date)}</Text>
+                        <Text style={styles.dday}>{performance.date && calcDDay(new Date(performance.date))}</Text>
                         <Text style={styles.title}>{performance.title}</Text>
-                        <Pressable style={styles.notifyButton}>
+                        {/* 예매 알림 버튼 */}
+                        <Pressable style={styles.notifyButton} onPress={handleNotifyPress}>
                             <Text style={styles.notifyText}>예매알림</Text>
-                            {isNotified ? <IcBellOff width={iconSize} height={iconSize} color={Theme.colors.gray} /> : <IcBellOn width={iconSize} height={iconSize} color={Theme.colors.gray} />}
+                            {isNotified ? (
+                                <IcBellOn width={iconBellSize} height={iconBellSize} fill={Theme.colors.gray} />
+                            ) : (
+                                <IcBellOff width={iconBellSize} height={iconBellSize} fill={Theme.colors.gray} />
+                            )}
                         </Pressable>
                     </View>
                 </View>
@@ -104,16 +142,21 @@ export default function PerformanceDetailPage() {
                 {/* 공연일시 */}
                 <View style={styles.row}>
                     <Text style={styles.label}>공연일시</Text>
-                    <Text style={styles.value}>{formatDateTime(performance.date, performance.time)}</Text>
+                    <Text style={styles.value}>
+                        {formatDateTime(
+                            new Date(performance.date),
+                            performance.ticket_open_time || undefined
+                        )}
+                    </Text>
                 </View>
 
                 {/* 공연장 */}
                 <View style={styles.row}>
                     <Text style={styles.label}>공연장</Text>
                     <View style={styles.valueWithIcon}>
-                        <Text style={styles.value}>{performance.venue.name}</Text>
-                        <Pressable onPress={() => router.push(`/venue/${performance.venue.id}}`)}>
-                            <IcChevronRight width={iconSize} height={iconSize} />
+                        <Text style={styles.value}>{performance.venue}</Text>
+                        <Pressable onPress={() => router.push(`/venue/${performance.id}`)}>
+                            <IcChevronRight width={iconChevronSize} height={iconChevronSize} />
                         </Pressable>
                     </View>
                 </View>
@@ -122,18 +165,19 @@ export default function PerformanceDetailPage() {
                 <View style={styles.rowColumn}>
                     <Text style={styles.label}>출연진</Text>
                     <FlatList
-                        data={performance.lineup}
+                        data={performance.artists}
                         horizontal
-                        keyExtractor={(item) => item.id}
+                        keyExtractor={(item) => item.id.toString()}
                         showsHorizontalScrollIndicator={false}
                         renderItem={({ item }) => (
                             <Pressable
                                 style={styles.artist}
-                                onPress={() =>
-                                    router.push(`/artist/${item.id}`)
-                                }
+                                onPress={() => router.push(`/artist/${item.id}`)}
                             >
-                                <Image source={{uri: item.profileUrl}} style={styles.profile} />
+                                <Image
+                                    source={{ uri: item.image_url || "https://via.placeholder.com/60" }}
+                                    style={styles.profile}
+                                />
                                 <Text style={styles.artistName}>{item.name}</Text>
                             </Pressable>
                         )}
@@ -143,30 +187,43 @@ export default function PerformanceDetailPage() {
                 {/* 티켓가격 */}
                 <View style={styles.row}>
                     <Text style={styles.label}>티켓가격</Text>
-                    <Text style={styles.value}>{performance.price}</Text>
+                    <Text style={styles.value}>
+                        {performance.price ? Number(performance.price.replace(/[^0-9]/g, '')).toLocaleString() + "원" : "-"}
+                    </Text>
                 </View>
 
                 {/* 티켓오픈 */}
-                <View style={styles.row}>
-                    <Text style={styles.label}>티켓오픈</Text>
-                    <Text style={styles.value}>{formatDateTime(performance.ticketOpen)}</Text>
-                </View>
+                {performance.ticket_open_date && (
+                    <View style={styles.row}>
+                        <Text style={styles.label}>티켓오픈</Text>
+                        <Text style={styles.value}>
+                            {formatDateTime(
+                                new Date(performance.ticket_open_date),
+                                performance.ticket_open_time || undefined
+                            )}
+                        </Text>
+                    </View>
+                )}
+
+                {/* 상세정보(인스타 게시물) */}
+                {performance.shortcode && (
+                    <View style={styles.row}>
+                        <Text style={styles.label}>상세정보</Text>
+                        <Pressable onPress={() => Linking.openURL(`https://www.instagram.com/p/${performance.shortcode}`)}>
+                            <Text style={styles.link}>공연 게시물 →</Text>
+                        </Pressable>
+                    </View>
+                )}
 
                 {/* 예매링크 */}
-                <View style={styles.row}>
-                    <Text style={styles.label}>예매링크</Text>
-                    <Pressable onPress={() => Linking.openURL(performance.ticketLink)}>
-                        <Text style={styles.link}>{performance.ticketLink}</Text>
-                    </Pressable>
-                </View>
-
-                {/* 상세정보 */}
-                <View style={styles.row}>
-                    <Text style={styles.label}>상세정보</Text>
-                    <Pressable onPress={() => Linking.openURL(performance.detailLink)}>
-                        <Text style={styles.link}>{performance.detailLink}</Text>
-                    </Pressable>
-                </View>
+                {performance.detailLink && (
+                    <View style={styles.row}>
+                        <Text style={styles.label}>예매링크</Text>
+                        <Pressable onPress={() => Linking.openURL(performance.detailLink)}>
+                            <Text style={styles.link}>예매링크 →</Text>
+                        </Pressable>
+                    </View>
+                )}
             </ScrollView>
         </View>
     );
@@ -174,19 +231,13 @@ export default function PerformanceDetailPage() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Theme.colors.white },
-
-    // 상단 섹션
-    topSection: { 
-        flexDirection: "row", 
-        padding: Theme.spacing.md,
-    },
-    posterWrapper: { alignItems: "center", marginRight: Theme.spacing.md },
+    topSection: { flexDirection: "row", padding: Theme.spacing.md },
+    posterWrapper: { alignItems: "center", marginRight: Theme.spacing.lg },
     poster: {
-        width: 90,
-        height: 120,
-        borderRadius: 8,
+        width: 120,
+        aspectRatio: 3 / 4,
+        borderRadius: 8
     },
-
     likesBox: {
         flexDirection: "row",
         alignItems: "center",
@@ -197,27 +248,10 @@ const styles = StyleSheet.create({
         paddingVertical: Theme.spacing.xs,
         marginTop: Theme.spacing.sm,
     },
-    likeCount: {
-        fontSize: Theme.fontSizes.sm,
-        color: Theme.colors.gray,
-        marginLeft: Theme.spacing.xs,
-    },
-
-    topInfo: { 
-        flex: 1, 
-    },
-    dday: { 
-        fontSize: Theme.fontSizes.sm,
-        fontWeight:Theme.fontWeights.medium, 
-        color: Theme.colors.gray,
-        marginVertical: Theme.spacing.xs,
-    },
-    title: { 
-        fontSize: Theme.fontSizes.lg, 
-        fontWeight: Theme.fontWeights.semibold,
-        color: Theme.colors.black, 
-        marginVertical: Theme.spacing.xs,
-    },
+    likeCount: { fontSize: Theme.fontSizes.sm, color: Theme.colors.gray, marginLeft: Theme.spacing.xs },
+    topInfo: { flex: 1 },
+    dday: { fontSize: Theme.fontSizes.sm, fontWeight: Theme.fontWeights.medium, color: Theme.colors.gray, marginVertical: Theme.spacing.xs },
+    title: { fontSize: Theme.fontSizes.lg, fontWeight: Theme.fontWeights.semibold, color: Theme.colors.black, marginVertical: Theme.spacing.xs },
     notifyButton: {
         flexDirection: "row",
         alignItems: "center",
@@ -229,58 +263,15 @@ const styles = StyleSheet.create({
         alignSelf: "flex-start",
         marginTop: Theme.spacing.sm,
     },
-    notifyText: {
-        color: Theme.colors.gray,
-        marginRight: Theme.spacing.xs,
-    },
-    separator: {
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.lightGray,
-        marginBottom: Theme.spacing.md,
-    },
-
-    // 상세 정보
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: Theme.spacing.md,
-    },
-    rowColumn: {
-        padding: Theme.spacing.md,
-    },
-    label: {
-        width: "25%",
-        fontSize: Theme.fontSizes.base,
-        fontWeight: Theme.fontWeights.semibold,
-    },
-    valueWithIcon: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    value: {
-        fontSize: Theme.fontSizes.base,
-        color: Theme.colors.black,
-        marginRight: Theme.spacing.xs,
-    },
-    // 출연진
-    artist: { 
-        alignItems: "center", 
-        marginRight: Theme.spacing.md,
-        marginVertical: Theme.spacing.md, 
-    },
-    profile: { 
-        width: 60, 
-        height: 60, 
-        borderRadius: 30, 
-        margin: Theme.spacing.sm,
-    },
-    artistName: { 
-        fontSize: Theme.fontSizes.base, 
-        color: Theme.colors.darkGray,
-        textAlign: "center" 
-    },
-
-    // 링크
+    notifyText: { color: Theme.colors.gray, marginRight: Theme.spacing.xs },
+    separator: { borderBottomWidth: 1, borderBottomColor: Theme.colors.lightGray, marginBottom: Theme.spacing.md },
+    row: { flexDirection: "row", alignItems: "center", padding: Theme.spacing.md },
+    rowColumn: { padding: Theme.spacing.md },
+    label: { width: "25%", fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold },
+    valueWithIcon: { flex: 1, flexDirection: "row", alignItems: "center" },
+    value: { fontSize: Theme.fontSizes.base, color: Theme.colors.black, marginRight: Theme.spacing.xs },
+    artist: { alignItems: "center", marginRight: Theme.spacing.md, marginVertical: Theme.spacing.md },
+    profile: { width: 60, height: 60, borderRadius: 30, margin: Theme.spacing.sm },
+    artistName: { fontSize: Theme.fontSizes.base, color: Theme.colors.darkGray, textAlign: "center" },
     link: { fontSize: Theme.fontSizes.base, textDecorationLine: "underline" },
 });

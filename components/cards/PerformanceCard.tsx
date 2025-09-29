@@ -24,7 +24,6 @@ type PerformanceCardProps = {
     | "popular"
     | "new"
     | "upcomingTicket"
-    | "pick"
     | "mood"
     | "list"
     | "venuePast"
@@ -53,7 +52,6 @@ export default function PerformanceCard({
 }: PerformanceCardProps) {
   const isHorizontal = type === "today" || type === "venuePast";
   const isUpcomingTicket = type === "upcomingTicket";
-  const isPick = type === "pick";
   const isVertical = type === "popular" || type === "new" || type === "mood" || type === "history";
   const isList = type === "list";
   const isCalendar = type === "calendar";
@@ -78,7 +76,6 @@ export default function PerformanceCard({
           isVertical && styles.posterVertical,
           isUpcomingTicket && styles.posterUpcoming,
           type === "list" && styles.posterList,
-          isPick && styles.posterPick,
           isCalendar && styles.posterCalendar,
         ]}
         resizeMode="cover"
@@ -87,7 +84,6 @@ export default function PerformanceCard({
       <View
         style={[
           styles.info,
-          isPick && styles.infoPick,
           isVertical && styles.infoVertical,
           isUpcomingTicket && styles.infoUpcomingTicket,
           isList && styles.infoList,
@@ -126,7 +122,7 @@ export default function PerformanceCard({
           </>
         ) : (
           <>
-            {title && !isPick && (
+            {title && (
               <Text style={[styles.title, isList && styles.titleList]} numberOfLines={2}>
                 {title}
               </Text>
@@ -140,17 +136,6 @@ export default function PerformanceCard({
 
             {!isUpcomingTicket && date && (
               <Text style={[styles.date, isList && styles.dateList]}>{date}</Text>
-            )}
-
-            {isPick && title && content && (
-              <View style={styles.pickTitleContent}>
-                <Text style={styles.pickTitle} numberOfLines={2}>
-                  {title}
-                </Text>
-                <Text style={styles.pickContent} numberOfLines={2}>
-                  {content}
-                </Text>
-              </View>
             )}
           </>
         )}
@@ -228,9 +213,6 @@ const styles = StyleSheet.create({
   posterList: {
     marginRight: Theme.spacing.md,
   },
-  posterPick: {
-    marginRight: Theme.spacing.sm,
-  },
   posterCalendar: {
     width: "100%",
     aspectRatio: 3 / 4,
@@ -244,11 +226,6 @@ const styles = StyleSheet.create({
   infoVertical: {
     flexDirection: "column",
     marginLeft: 0,
-  },
-  infoPick: {
-    flex: 1, 
-    flexDirection: "column",
-    justifyContent: "space-between",
   },
   infoUpcomingTicket: {
     flex: 1,
@@ -344,21 +321,6 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     justifyContent: "space-between",
   },
-  pickTitleContent: {
-    flex: 1,
-    flexDirection: "column",
-    justifyContent: "space-between",
-  },
-  pickTitle: {
-    fontSize: Theme.fontSizes.base,
-    fontWeight: Theme.fontWeights.semibold,
-    color: Theme.colors.black,
-  },
-  pickContent: {
-    fontSize: Theme.fontSizes.sm,
-    fontWeight: Theme.fontWeights.regular,
-    color: Theme.colors.darkGray,
-  },
 
 
   rightButton: {
@@ -367,7 +329,7 @@ const styles = StyleSheet.create({
     top: "50%",
     transform: [{ translateY: -12 }],
   },
-  reviewCard: {
+  reviewPrevCard: {
     flex: 1,
     justifyContent: "center",
     marginHorizontal: Theme.spacing.sm,

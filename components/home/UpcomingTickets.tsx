@@ -1,22 +1,54 @@
-// 5. 티켓 오픈 예정
 // components/home/UpcomingTickets.tsx
 import { View, Text, StyleSheet, FlatList } from "react-native";
+import { useEffect, useState } from "react";
+import { useRouter } from "expo-router";
+
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
-
-const UPCOMING_TICKETS = [
-  { id: "1", title: "오늘 공연 1", venue: "홍대 클럽", date: "2025.09.12", ticketOpenDate: "2025.05.28", ticketOpenTime: "오후 8시", posterUrl: "https://picsum.photos/90/120" },
-  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-];
+import { fetchTicketOpeningPerformances } from "@/api/PerformanceApi";
+import { Performance } from "@/types/performance";
 
 export default function UpcomingTickets() {
+  const router = useRouter();
+  const [performances, setPerformances] = useState<Performance[]>([]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const end = new Date();
+    end.setDate(end.getDate() + 7);
+    const endDate = end.toISOString().split("T")[0];
+
+    fetchTicketOpeningPerformances(today, endDate)
+      .then((res) => {
+        const mapped = res.map((p) => ({
+          id: p.id.toString(),
+          title: p.title,
+          venue: p.venue,
+          posterUrl: p.thumbnail,
+          date: p.date,
+          ticketOpenDate: p.ticket_open_date,
+          ticketOpenTime: p.time, // API의 time 필드가 티켓 오픈 시간
+        }));
+        setPerformances(mapped);
+      })
+      .catch((err) => console.error("티켓 오픈 공연 조회 실패:", err));
+  }, []);
+
+  if (performances.length === 0) {
+      return (
+        <View style={styles.section}>
+          <Text style={styles.title}>티켓 오픈 예정</Text>
+          <Text style={styles.content}>티켓 오픈이 예정된 공연이 없습니다.</Text>
+        </View>
+      );
+    }
+
   return (
     <View style={styles.section}>
       <Text style={styles.title}>티켓 오픈 예정</Text>
 
       <FlatList
-        data={UPCOMING_TICKETS}
+        data={performances}
         renderItem={({ item }) => (
           <PerformanceCard
             type="upcomingTicket"
@@ -26,6 +58,7 @@ export default function UpcomingTickets() {
             ticketOpenDate={item.ticketOpenDate}
             ticketOpenTime={item.ticketOpenTime}
             posterUrl={item.posterUrl}
+            onPress={() => router.push(`/performance/${item.id}`)}
           />
         )}
         keyExtractor={(item) => item.id}
@@ -46,6 +79,10 @@ const styles = StyleSheet.create({
     fontWeight: Theme.fontWeights.semibold,
     color: Theme.colors.black,
     paddingVertical: Theme.spacing.md,
+    textAlign: "center",
+  },
+  content: {
+    color: Theme.colors.gray,
     textAlign: "center",
   },
   list: {

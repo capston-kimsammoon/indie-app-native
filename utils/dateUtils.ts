@@ -13,19 +13,14 @@ export const getToday = () => {
 };
 
 export function getDateFromDateString(dateStr: string): string {
-  // 날짜 구분자 "-" 또는 "." 모두 지원
-  const [yearStr, monthStr, dayStr] = dateStr.includes('-') 
-    ? dateStr.split('-') 
-    : dateStr.split('.');
-
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
-
-  if (isNaN(year) || isNaN(month) || isNaN(day)) return "";
-
+  let dateObj = new Date(dateStr);
+  if (isNaN(dateObj.getTime())) return ""; // 변환 실패
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const day = String(dateObj.getDate()).padStart(2, "0");
   return `${year}.${month}.${day}`;
 }
+
 
 
 export function getWeekDayFromDateString(dateStr: string): string {
@@ -62,7 +57,9 @@ export const formatTime = (time?: string) => {
 
 
 // 날짜 + 시간 합치기
-export const formatDateTime = (date: Date, time?: string) => {
+export const formatDateTime = (dateInput: string | Date, time?: string) => {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
