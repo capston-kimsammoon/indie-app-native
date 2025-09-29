@@ -1,36 +1,61 @@
-// 4. NEW 업로드 공연
-// components/home/NewPerformances.tsx
-import { View, Text, StyleSheet, FlatList } from "react-native";
+import { View, Text, StyleSheet, FlatList, ActivityIndicator } from "react-native";
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
 import { useRouter } from "expo-router";
-
-const NEW_PERFORMANCES = [
-  { id: "1", title: "오늘 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-  { id: "4", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-];
+import { useState, useEffect } from "react";
+import { getDateFromDateString } from "@/utils/dateUtils";
+import { fetchRecentPerformances } from "@/api/PerformanceApi";
+import { Performance } from "@/types/performance";
 
 export default function NewPerformances() {
   const router = useRouter();
-  
+  const [items, setItems] = useState<Performance[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const data = await fetchRecentPerformances(6); // limit 6
+      setItems(data);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.title}>NEW 업로드 공연</Text>
+        <ActivityIndicator size="large" color={Theme.colors.themeOrange} />
+      </View>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.title}>NEW 업로드 공연</Text>
+        <Text style={{ color: Theme.colors.gray }}>등록된 공연이 없습니다.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.section}>
       <Text style={styles.title}>NEW 업로드 공연</Text>
 
       <FlatList
-        data={NEW_PERFORMANCES}
+        data={items}
         renderItem={({ item }) => (
           <PerformanceCard
             type="new"
             title={item.title}
-            date={item.date}
-            posterUrl={item.posterUrl}
+            date={getDateFromDateString(item.date)}
+            posterUrl={item.posterUrl || item.thumbnail} // thumbnail도 대응
             onPress={() => router.push(`/performance/${item.id}`)}
           />
         )}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}

@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context"; // ✅ 추가
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Theme from "@/constants/Theme";
 
 type SortType = string;
@@ -25,7 +25,7 @@ export default function SortFilterModal({
   onChange: (sort: SortType) => void;
   selectedSort: SortType;
 }) {
-  const insets = useSafeAreaInsets(); // ✅ 안전영역
+  const insets = useSafeAreaInsets(); 
 
   const handleSortSelect = (option: SortType) => {
     onChange(option);

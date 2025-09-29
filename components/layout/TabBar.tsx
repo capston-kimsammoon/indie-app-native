@@ -1,50 +1,77 @@
-import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import Theme from '@/constants/Theme';
+import { View, Pressable, StyleSheet, Text } from "react-native";
+import { useRouter } from "expo-router";
+import Theme from "@/constants/Theme";
 
 // 아이콘
-import IcBarHome from '@/assets/icons/ic-bar-home.svg';
-import IcBarCalendar from '@/assets/icons/ic-bar-calendar.svg';
-import IcBarLocation from '@/assets/icons/ic-bar-location.svg';
-import IcBarStamp from '@/assets/icons/ic-bar-stamp.svg';
-import IcBarMypage from '@/assets/icons/ic-bar-mypage.svg';
+import IcBarHome from "@/assets/icons/ic-bar-home.svg";
+import IcBarCalendar from "@/assets/icons/ic-bar-calendar.svg";
+import IcBarLocation from "@/assets/icons/ic-bar-location.svg";
+import IcBarStamp from "@/assets/icons/ic-bar-stamp.svg";
+import IcBarMypage from "@/assets/icons/ic-bar-mypage.svg";
 
 type Props = { pathname: string };
+
+const TABS = [
+  { label: "홈", route: "/", Icon: IcBarHome },
+  { label: "캘린더", route: "/calendar", Icon: IcBarCalendar },
+  { label: "주변 공연", route: "/location", Icon: IcBarLocation },
+  { label: "스탬프", route: "/stamp", Icon: IcBarStamp },
+  { label: "마이페이지", route: "/mypage", Icon: IcBarMypage },
+];
 
 export default function TabBar({ pathname }: Props) {
   const router = useRouter();
   const iconSize = Theme.iconSizes.lg;
 
-  const TabButton = ({ route, Icon }: { route: string; Icon: any }) => (
-    <Pressable style={styles.tab} onPress={() => router.push(route)}>
-      <Icon
-        width={iconSize}
-        height={iconSize}
-      />
-    </Pressable>
-  );
+  const TabButton = ({
+    route,
+    Icon,
+    label,
+  }: {
+    route: string;
+    Icon: any;
+    label: string;
+  }) => {
+    const isActive = pathname === route;
+    const color = isActive ? Theme.colors.themeOrange : Theme.colors.gray;
+
+    return (
+      <Pressable style={styles.tab} onPress={() => router.push(route)}>
+        <Icon width={iconSize} height={iconSize} fill={color} />
+        <Text style={[styles.label, { color }]}>{label}</Text>
+      </Pressable>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <TabButton route="/" Icon={IcBarHome} />
-      <TabButton route="/calendar" Icon={IcBarCalendar} />
-      <TabButton route="/location" Icon={IcBarLocation} />
-      <TabButton route="/stamp" Icon={IcBarStamp} />
-      <TabButton route="/mypage" Icon={IcBarMypage} />
+      {TABS.map((tab, i) => (
+        <TabButton key={i} {...tab} />
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: Theme.colors.lightGray,
-    backgroundColor: 'transparent',
-    marginBottom: Theme.spacing.md,
+    backgroundColor: Theme.colors.white,
+    paddingBottom: Theme.spacing.lg,
   },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Theme.spacing.md},
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Theme.spacing.sm,
+    margin: Theme.spacing.xs,
+  },
+  label: {
+    fontSize: Theme.fontSizes.xs,
+    fontWeight: Theme.fontWeights.medium,
+    marginTop: Theme.spacing.xs,
+  },
 });
