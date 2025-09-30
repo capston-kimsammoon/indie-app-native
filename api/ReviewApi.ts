@@ -12,35 +12,31 @@ interface FetchParams {
 // 모든 공연장의 리뷰 목록 조회
 export const fetchAllReviews = async (
   { page = 1, size = 20 }: FetchParams,
-  accessToken?: string
 ): Promise<{ total: number; items: ReviewItem[] }> => {
   const headers: any = {};
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (TEST_TOKEN) headers.Authorization = `Bearer ${TEST_TOKEN}`;
 
-  const res = await http.get(`/venue/all-reviews`, {
+  const res = await http.get(`/venue/reviews`, {  
     params: { page, size },
     headers,
   });
 
-  if (res.status < 200 || res.status >= 300) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-
   const data = res.data ?? {};
+
+  const myUserId = TEST_TOKEN ? getUserIdFromToken(TEST_TOKEN) : null;
 
   const items: ReviewItem[] = Array.isArray(data.items)
     ? data.items.map((r: any) => ({
         id: r.id,
-        author: r.user?.nickname ?? '익명',
+        user: r.user ?? { nickname: "익명", profile_url: "", id: null },
         content: r.content,
-        profile_url: r.user?.profile_url ?? '',
-        created_at: r.created_at ?? '',
+        created_at: r.created_at ?? "",
         like_count: r.like_count ?? 0,
         is_liked: r.liked_by_me ?? false,
-        images: r.images?.map((im: any) => im.image_url) ?? [],
-        is_mine: r.is_mine ?? false,
-        venue: r.venue ? { id: r.venue.id, name: r.venue.name } : null,
-      }))
+        images: r.images ?? [],
+        isMine: myUserId ? r.user?.id === myUserId : false, // camelCase
+        venue: r.venue ?? { id: null, name: "", logo_url: "" },
+    }))
     : [];
 
   return { total: data.total ?? items.length, items };
@@ -78,7 +74,7 @@ export const fetchVenueReviewList = async (
         is_liked: r.liked_by_me ?? false,
         like_count: r.like_count ?? 0,
         created_at: r.created_at ?? "",
-        isMine: myUserId ? r.user?.id === myUserId : false, // 여기서 판단
+        is_mine: myUserId ? r.user?.id === myUserId : false, // 여기서 판단
       }))
     : [];
 
@@ -160,7 +156,7 @@ export const likeReview = async (reviewId: number, accessToken?: string) => {
   const headers: any = {};
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  const res = await http.post(`/review/${reviewId}/like`, {}, { headers });
+  const res = await http.post(`/venue/review/${reviewId}/like`, {}, { headers });
   if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
   return res.data;
 };
@@ -170,7 +166,7 @@ export const unlikeReview = async (reviewId: number, accessToken?: string) => {
   const headers: any = {};
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  const res = await http.delete(`/review/${reviewId}/like`, { headers });
+  const res = await http.delete(`/venue/review/${reviewId}/like`, { headers });
   if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
   return res.data;
 };

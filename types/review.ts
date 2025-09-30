@@ -7,7 +7,7 @@ export interface ReviewItem {
   like_count?: number;
   is_liked?: boolean;
   images?: string[];
-  is_mine?: boolean;
+  isMine?: boolean;
   venue?: { 
     id: number;
     name: string;

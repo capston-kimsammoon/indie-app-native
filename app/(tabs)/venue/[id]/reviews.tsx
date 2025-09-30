@@ -131,6 +131,7 @@ export default function VenueReviewsPage() {
               onDelete={handleDeleteReview}
               onToggleLike={handleLikeToggle}
               showLike={true} // 좋아요 버튼 표시
+              showVenueInfo={false}
             />
           )}
           keyExtractor={(item) => item.id.toString()}
@@ -148,14 +149,4 @@ const styles = StyleSheet.create({
   totalText: { fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.medium },
   writeButton: { backgroundColor: Theme.colors.themeOrange, borderRadius: 10, padding: Theme.spacing.sm },
   writeButtonText: { color: Theme.colors.white, fontWeight: Theme.fontWeights.medium },
-  card: { position: "relative", backgroundColor: Theme.colors.white, padding: Theme.spacing.md, marginBottom: Theme.spacing.md, borderRadius: 12, borderWidth: 1, borderColor: Theme.colors.lightGray },
-  content: { fontSize: Theme.fontSizes.base, color: Theme.colors.black, textAlign: "left", marginBottom: Theme.spacing.md },
-  footer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  userInfo: { flexDirection: "row", alignItems: "center" },
-  avatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: Theme.colors.lightGray, marginRight: Theme.spacing.sm },
-  author: { fontWeight: Theme.fontWeights.medium, fontSize: Theme.fontSizes.base, marginRight: Theme.spacing.sm, color: Theme.colors.black },
-  date: { fontWeight: Theme.fontWeights.regular, fontSize: Theme.fontSizes.sm, color: Theme.colors.gray },
-  likeButton: { flexDirection: "row", alignItems: "center" },
-  likeCount: { marginLeft: Theme.spacing.xs, fontSize: Theme.fontSizes.sm },
-  deleteBtn: { position: "absolute", top: Theme.spacing.sm, right: Theme.spacing.sm, zIndex: 10 },
 });
