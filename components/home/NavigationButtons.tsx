@@ -18,7 +18,7 @@ const NAV_BUTTONS: NavButton[] = [
   { label: "공연", icon: IcHomePerformance, screen: "performance" },
   { label: "공연장", icon: IcHomeVenue, screen: "venue" },
   { label: "아티스트", icon: IcHomeArtist, screen: "artist" },
-  { label: "매거진", icon: IcHomePost, screen: "magazine" },
+  { label: "리뷰", icon: IcHomePost, screen: "review" },
 ];
 
 export default function NavigationButtons() {
@@ -33,7 +33,7 @@ export default function NavigationButtons() {
             style={styles.iconWrapper}
             onPress={() => router.push(item.screen)}
           >
-            <item.icon width={iconSize} height={iconSize} />
+            <item.icon fill={Theme.colors.themeOrange} width={iconSize} height={iconSize} />
           </TouchableOpacity>
           <Text style={styles.label}>{item.label}</Text>
         </View>
