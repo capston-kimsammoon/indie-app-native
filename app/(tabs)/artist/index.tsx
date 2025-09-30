@@ -1,68 +1,92 @@
-// /app/(tabs)/artist/index.tsx
-import React, { useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable, Image } from "react-native";
+// app/(tabs)/artist/index.tsx
+import React, { useState, useEffect } from "react";
+import { View, FlatList, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
-import { useNavigation } from "@react-navigation/native";
+import { useArtists } from '@/context/ArtistContext';
 
 import Theme from "@/constants/Theme";
-
-import IcHeartOutline from "@/assets/icons/ic-heart-outline.svg";
-import IcHeartFilled from "@/assets/icons/ic-heart-filled.svg";
-
-type Artist = {
-    id: string,
-    name: string,
-    profileUrl: string,
-};
-
-const MOCK_ARTISTS: Artist[] = [
-    { id: "1", name: "하츄핑", profileUrl: "https://picsum.photos/100/100" },
-    { id: "2", name: "앙대핑", profileUrl: "https://picsum.photos/100/100" },
-    { id: "3", name: "앙대핑", profileUrl: "https://picsum.photos/100/100" },
-    { id: "4", name: "앙대핑", profileUrl: "https://picsum.photos/100/100" },
-    { id: "5", name: "앙대핑", profileUrl: "https://picsum.photos/100/100" },
-];
+import ArtistCard from "@/components/cards/ArtistCard";
+import { fetchArtistList } from "@/api/ArtistApi";
+import { Artist } from "@/types/artist";
+import { like, unlike, TYPE_ARTIST } from "@/api/LikeApi";
 
 export default function ArtistListPage() {
-    const navigation = useNavigation();
     const router = useRouter();
 
-    const artists = MOCK_ARTISTS;
-    const iconSize = Theme.iconSizes.sm;
+    //const [artists, setArtists] = useState<Artist[]>([]);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const [liked, setLiked] = useState(false);
 
-    const [likedArtists, setLikedArtists] = useState<{ [key: string]: boolean }>({});
+    const { artists, setArtists } = useArtists();
 
-    const toggleLike = (id: string) => {
-        setLikedArtists((prev) => ({
-            ...prev,
-            [id]: !prev[id],
-        }));
+    // 아티스트 리스트 가져오기
+    const loadArtists = async (nextPage: number = 1) => {
+        if (loading || nextPage > totalPages) return;
+        setLoading(true);
+        try {
+            const res = await fetchArtistList(nextPage, 20); // page, size
+            setArtists((prev) => [...prev, ...res.artists]);
+            setTotalPages(res.totalPages);
+            setPage(nextPage);
+        } catch (err) {
+            console.error("Artist list fetch error:", err);
+        } finally {
+            setLoading(false);
+        }
     };
+
+    useEffect(() => {
+        loadArtists(1); // 초기 1페이지
+    }, []);
+
+    const handleLoadMore = () => {
+        if (page < totalPages) {
+            loadArtists(page + 1);
+        }
+    };
+
+    // 찜 ON/OFF 처리
+    const handleToggleLike = async (artistId: number, currentLiked: boolean) => {
+        const newLiked = !currentLiked;
+
+        try {
+            if (newLiked) await like(TYPE_ARTIST, artistId);
+            else await unlike(TYPE_ARTIST, artistId);
+
+            setArtists(prev =>
+                prev.map(a => (a.id === artistId ? { ...a, isLiked: newLiked } : a))
+            );
+        } catch (err: any) {
+            console.error("artist 찜 처리 실패:", err.response?.data || err.message);
+        }
+    };
+
+    // 중복 제거된 artists 만들기
+    const uniqueArtists = Array.from(new Map(artists.map(a => [a.id, a])).values());
 
     return (
         <View style={styles.container}>
             <FlatList
-                data={artists}
-                keyExtractor={(item) => item.id}
+                data={uniqueArtists}
+                keyExtractor={(item, index) => `artist-${item.id ?? 'noid'}-${index}`}
                 renderItem={({ item }) => (
-                    <View style={styles.artistCard}>
-                        <Pressable onPress={() => router.push(`/artist/${item.id}`)} style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-                            <Image source={{uri : item.profileUrl}} style={styles.artistProfile} />
-                            <Text style={styles.artistName}>{item.name}</Text>
-                        </Pressable>
-                        
-                        {/* 하트 버튼 */}
-                        <Pressable style={styles.heartButton} onPress={() => toggleLike(item.id)}>
-                            {likedArtists[item.id] ? (
-                                <IcHeartFilled width={iconSize} height={iconSize} />
-                            ) : (
-                                <IcHeartOutline width={iconSize} height={iconSize} />
-                            )}
-                        </Pressable>
-
-                    </View>
+                    <ArtistCard
+                        id={item.id.toString()}
+                        name={item.name}
+                        profileUrl={item.image_url}
+                        liked={item.isLiked}
+                        onPress={() => router.push(`/artist/${item.id}`)}
+                        onToggleLike={() => handleToggleLike(item.id, item.isLiked)}
+                    />
                 )}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={
+                    loading ? <ActivityIndicator style={{ margin: 10 }} /> : null
+                }
             />
 
         </View>
@@ -70,41 +94,6 @@ export default function ArtistListPage() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.white,
-    },
-    flexSpacer: {
-        flex: 1,
-    },
-    artistCard: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: Theme.spacing.sm,
-        paddingHorizontal: Theme.spacing.md,
-    },
-    separator: {
-        height: 1,
-        backgroundColor: Theme.colors.lightGray,
-    },
-    artistProfile: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        marginRight: Theme.spacing.md,
-    },
-    artistName: {
-        fontSize: Theme.fontSizes.lg,
-        fontWeight: Theme.fontWeights.medium,
-        color: Theme.colors.black,
-    },
-    heartButton: {
-        width: 32,             
-        height: 32,
-        borderRadius: 16,      
-        borderWidth: 1,
-        borderColor: Theme.colors.lightGray,
-        alignItems: "center",  
-        justifyContent: "center",
-    },
+    container: { flex: 1, backgroundColor: Theme.colors.white },
+    separator: { height: 1, backgroundColor: Theme.colors.lightGray },
 });

@@ -1,126 +1,152 @@
-// /venue/[id]/reviews.tsx
-import React from "react";
-import { View, Text, StyleSheet, Image, FlatList, Pressable, Alert } from "react-native";
-import { useRoute } from "@react-navigation/native";
+// app/(tabs)/venue/[id]/reviews.tsx
+import React, { useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Image,
+  Pressable,
+  ActivityIndicator,
+  Dimensions,
+  Alert,
+} from "react-native";
+import { useRoute, useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import Theme from "@/constants/Theme";
-import { getDateFromDateString } from "@/utils/dateUtils";
+import IcHeartFilled from "@/assets/icons/ic-heart-filled.svg";
+import IcHeartOutline from "@/assets/icons/ic-heart-outline.svg";
+import IcClose from "@/assets/icons/ic-close.svg";
+import { fetchVenueReviewList, likeReview, unlikeReview, deleteVenueReview } from "@/api/ReviewApi";
+import { ReviewItem } from "@/types/review";
+import Images from "@/components/common/Images";
+import { TEST_TOKEN } from "@env";
+import { getUserIdFromToken } from "@/utils/auth";
+import ReviewCard from "@/components/cards/ReviewCard";
+
+const myUserId = getUserIdFromToken(TEST_TOKEN);
 
 type RouteParams = { id: string };
 
-const MOCK_REVIEWS = [
-    {
-        id: "1",
-        userProfile: "https://picsum.photos/100/100",
-        userName: "하츄핑",
-        date: "2025-09-28",
-        content: "여기 음료 따로 팔아서 음료 반입  안돼여 근데 여기 음료 싸고 맛있어서 ㄱㅊ 레몬에이드가 젤 맛있음 여기 음료 따로 팔아서 음료 반입  안돼여 근데 여기 음료 싸고 맛있어서 ㄱㅊ 레몬에이드가 젤 맛있음 여기 음료 따로 팔아서 음료 반입  안돼여 근데 여기 음료 싸고 맛있어서 ㄱㅊ 레몬에이드가 젤 맛있음 여기 음료 따로 팔아서 음료 반입  안돼여 근데 여기 음료 싸고 맛있어서 ㄱㅊ 레몬에이드가 젤 맛있음 여기 음료 따로 팔아서 음료 반입  안돼여 근데 여기 음료 싸고 맛있어서 ㄱㅊ 레몬에이드가 젤 맛있음 여기 음료 따로 팔아서 음료 반입  안돼여 근데 여기 음료 싸고 맛있어서 ㄱㅊ 레몬에이드가 젤 맛있음"
-    },
-    {
-        id: "2",
-        userProfile: "https://picsum.photos/100/100",
-        userName: "파랑핑",
-        date: "2025.09.28",
-        content: "홍입에서 걸어서 10분도 안 걸림 홍입에서 걸어서 10분도 안 걸림 홍입에서 걸어서 10분도 안 걸림 홍입에서 걸어서 10분도 안 걸림"
-    },
-    {
-        id: "3",
-        userProfile: "https://picsum.photos/100/100",
-        date: "2025.09.28",
-        userName: "파랑핑",
-        content: "ㄱㅊㄱㅊ"
-    }
-];
-
 export default function VenueReviewsPage() {
-    const route = useRoute();
-    const { id } = route.params as RouteParams;
+  const route = useRoute();
+  const router = useRouter();
+  const { id } = route.params as RouteParams;
 
-    return (
-        <View style={styles.container}>
-            <FlatList
-                data={MOCK_REVIEWS}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                    <View style={styles.reviewCard}>
-                        <Text style={styles.content}>{item.content.slice(0, 300)}</Text>
-                        <View style={styles.footer}>
-                            <Image source={{uri: item.userProfile}} style={styles.profile} />
-                            <Text style={styles.userName}>{item.userName}</Text>
-                            <Text style={styles.date}>{getDateFromDateString(item.date)}</Text>
-                            <Pressable
-                                style={styles.reportButton}
-                                onPress={() =>
-                                    Alert.alert(
-                                        "신고", // 제목
-                                        "이 리뷰를 신고하시겠습니까?", // 메시지
-                                        [
-                                            { text: "취소", style: "cancel" },
-                                            { text: "신고", style: "destructive", onPress: () => console.log("신고 완료") },
-                                        ],
-                                        { cancelable: true }
-                                    )
-                                }
-                            >
-                                <Text style={styles.reportText}>신고</Text>
-                            </Pressable>
-                        </View>
-                    </View>
-                )}
-                contentContainerStyle={{ padding: Theme.spacing.md }}
-            />
-        </View>
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
+  const IcHeartSize = Theme.iconSizes.sm;
+
+  // --- 리뷰 불러오기 ---
+  const loadReviews = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchVenueReviewList(Number(id), { page: 1, size: 50 }, TEST_TOKEN);
+
+      const items = data.items.map(r => ({
+        ...r,
+        author: r.user?.nickname ?? "익명",
+        profile_url: r.user?.profile_url ?? "",
+        images: r.images ?? [],
+        isMine: r.user?.id === myUserId, // 내가 쓴 리뷰 판단
+      }));
+
+      setReviews(items);
+      setTotal(data.total ?? items.length);
+    } catch (err) {
+      console.error("리뷰 로드 실패:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(useCallback(() => {
+    loadReviews();
+  }, [id]));
+
+  const goWriteReview = () => router.push(`/venue/${id}/review/write`);
+
+  // --- 좋아요 토글 ---
+  const handleLikeToggle = async (review: ReviewItem) => {
+    setReviews(prev =>
+      prev.map(r =>
+        r.id === review.id
+          ? { ...r, is_liked: !r.is_liked, like_count: r.is_liked ? r.like_count - 1 : r.like_count + 1 }
+          : r
+      )
     );
+
+    try {
+      if (review.is_liked) await unlikeReview(review.id, TEST_TOKEN);
+      else await likeReview(review.id, TEST_TOKEN);
+    } catch (err) {
+      console.error("좋아요 실패", err);
+      setReviews(prev =>
+        prev.map(r =>
+          r.id === review.id ? { ...r, is_liked: review.is_liked, like_count: review.like_count } : r
+        )
+      );
+    }
+  };
+
+  // --- 리뷰 삭제 ---
+  const handleDeleteReview = async (review: ReviewItem) => {
+    Alert.alert("리뷰 삭제", "정말 삭제하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "삭제",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteVenueReview(review.id, TEST_TOKEN);
+            setReviews(prev => prev.filter(r => r.id !== review.id));
+            setTotal(prev => prev - 1);
+          } catch (err: any) {
+            console.error("리뷰 삭제 실패", err);
+            Alert.alert("리뷰 삭제 실패", err.message || "");
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: Theme.colors.white }}>
+      <View style={styles.header}>
+        <Text style={styles.totalText}>총 {total}개</Text>
+        <Pressable style={styles.writeButton} onPress={goWriteReview}>
+          <Text style={styles.writeButtonText}>리뷰 작성</Text>
+        </Pressable>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator size="large" color={Theme.colors.themeOrange} style={{ marginTop: 50 }} />
+      ) : (
+        <FlatList
+          data={reviews}
+          renderItem={({ item }) => (
+            <ReviewCard
+              item={item}
+              onDelete={handleDeleteReview}
+              onToggleLike={handleLikeToggle}
+              showLike={true} // 좋아요 버튼 표시
+              showVenueInfo={false}
+            />
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          style={{paddingHorizontal: Theme.spacing.md}}
+        />
+      )}
+    </View>
+  );
 }
 
+const { width } = Dimensions.get("window");
+
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.white,
-    },
-    reviewCard: {
-        marginBottom: Theme.spacing.md,
-        padding: Theme.spacing.md,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: Theme.colors.lightGray,
-        backgroundColor: Theme.colors.white,
-    },
-    content: {
-        fontSize: Theme.fontSizes.sm,
-        fontWeight: Theme.fontWeights.medium,
-        color: Theme.colors.darkGray,
-        marginBottom: Theme.spacing.sm,
-    },
-    footer: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginTop: Theme.spacing.sm,
-    },
-    profile: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        marginRight: Theme.spacing.sm,
-    },
-    userName: {
-        fontSize: Theme.fontSizes.sm,
-        fontWeight: Theme.fontWeights.regular,
-        marginRight: Theme.spacing.sm,
-    },
-    date: {
-        fontSize: Theme.fontSizes.sm,
-        fontWeight: Theme.fontWeights.regular,
-        color: Theme.colors.gray,
-        marginRight: Theme.spacing.sm,
-        flex: 1,
-    },
-    reportButton: {
-    },
-    reportText: {
-        fontSize: Theme.fontSizes.sm,
-        fontWeight: Theme.fontWeights.medium,
-        color: Theme.colors.gray,
-        textDecorationLine: "underline",
-    },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: Theme.spacing.md, backgroundColor: Theme.colors.white, marginBottom: Theme.spacing.sm },
+  totalText: { fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.medium },
+  writeButton: { backgroundColor: Theme.colors.themeOrange, borderRadius: 10, padding: Theme.spacing.sm },
+  writeButtonText: { color: Theme.colors.white, fontWeight: Theme.fontWeights.medium },
 });

@@ -47,7 +47,7 @@ export default function Header({ pathname, title, venueName, artistName }: Props
     );
   }
 
-    if (pathname.startsWith('/magazine')) {
+  if (pathname.startsWith('/magazine')) {
     // 매거진
     return (
       <View style={styles.header}>
@@ -55,6 +55,21 @@ export default function Header({ pathname, title, venueName, artistName }: Props
           <IcArrowLeft width={headerIconSize} height={headerIconSize} />
         </Pressable>
         <Text style={styles.title}>김삼문 pick!</Text>
+        <Pressable style={styles.right} onPress={handleNavigateToSearch}>
+          <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (pathname.startsWith('/review')) {
+    // 공연장 리뷰
+    return (
+      <View style={styles.header}>
+        <Pressable style={styles.left} onPress={handleGoBack}>
+          <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+        </Pressable>
+        <Text style={styles.title}>공연장 리뷰</Text>
         <Pressable style={styles.right} onPress={handleNavigateToSearch}>
           <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
         </Pressable>

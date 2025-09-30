@@ -5,28 +5,38 @@ import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
 import { useRouter } from "expo-router";
 import { getDateFromDateString } from "@/utils/dateUtils";
-
-const POPULAR_PERFORMANCES = [
-  { id: "1", title: "어둠속 빛나는 광채 ‘DARK Radiance’", venue: "홍대 클럽", date: "2025-09-12", posterUrl: "https://picsum.photos/90/120" },
-  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/90/120" },
-  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/90/120" },
-];
+import { useEffect, useState } from "react";
+import { fetchPopularPerformances } from "@/api/PerformanceApi";
+import { Performance } from "@/types/performance";
 
 export default function PopularPerformances() {
   const router = useRouter();
+  const [performances, setPerformances] = useState<Performance[]>([]);
   
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await fetchPopularPerformances(6);
+        setPerformances(data);
+      } catch (e) {
+        console.error("인기 많은 공연 불러오기 실패:", e);
+      }
+    };
+    load();
+  }, []);
+
   return (
     <View style={styles.section}>
       <Text style={styles.title}>인기 많은 공연</Text>
 
       <FlatList
-        data={POPULAR_PERFORMANCES}
+        data={performances}
         renderItem={({ item }) => (
           <PerformanceCard
             type="popular"
             title={item.title}
             date={getDateFromDateString(item.date)}
-            posterUrl={item.posterUrl}
+            posterUrl={item.posterUrl || item.thumbnail}
             onPress={() => router.push(`/performance/${item.id}`)}
           />
         )}

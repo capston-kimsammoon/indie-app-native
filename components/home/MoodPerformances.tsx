@@ -1,42 +1,35 @@
-// 7. Mood별 공연
 // components/home/MoodPerformances.tsx
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
 import { useRouter } from "expo-router";
+import { fetchMoods, fetchPerformancesByMood } from "@/api/MoodApi";
 
-type Mood = "신나는" | "차분한" | "따뜻한" | "짜릿한";
-
-const MOODS: Mood[] = ["신나는", "차분한", "따뜻한", "짜릿한"];
-
-const MOOD_ITEMS: Record<Mood, {
-  id: string;
-  title: string;
-  venue: string;
-  date: string;
-  posterUrl: string;
-}[]> = {
-  "신나는": [
-    { id: "1", title: "신나는 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-    { id: "2", title: "신나는 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-    { id: "3", title: "신나는 공연 2", venue: "강남 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-  ],
-  "차분한": [
-    { id: "3", title: "차분한 공연 1", venue: "홍대 클럽", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-  ],
-  "따뜻한": [
-    { id: "4", title: "따뜻한 공연 1", venue: "이태원 클럽", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-  ],
-  "짜릿한": [
-    { id: "5", title: "짜릿한 공연 1", venue: "강남 공연장", date: "2025.09.12", posterUrl: "https://picsum.photos/90/120" },
-  ],
-};
+// 항상 표시할 무드 버튼
+const MOODS = ["신나는", "차분한", "따뜻한", "짜릿한"] as const;
+type Mood = typeof MOODS[number];
 
 export default function MoodPerformances() {
   const router = useRouter();
-
   const [selectedMood, setSelectedMood] = useState<Mood>(MOODS[0]);
+  const [performances, setPerformances] = useState<any[]>([]);
+
+  // 선택된 무드 공연 API 호출
+  useEffect(() => {
+    const loadPerformances = async () => {
+      try {
+        // 실제 API에서 무드 ID 매핑 필요 (임시: index+1)
+        const moodId = MOODS.indexOf(selectedMood) + 1;
+        const list = await fetchPerformancesByMood(moodId);
+        setPerformances(list);
+      } catch (err) {
+        console.error(`${selectedMood} 공연 불러오기 실패`, err);
+        setPerformances([]);
+      }
+    };
+    loadPerformances();
+  }, [selectedMood]);
 
   return (
     <View style={styles.section}>
@@ -44,40 +37,43 @@ export default function MoodPerformances() {
 
       {/* 무드 버튼 */}
       <View style={styles.buttonRow}>
-        {MOODS.map((mood) => (
-          <TouchableOpacity
-            key={mood}
-            style={[
-              styles.moodButton,
-              selectedMood === mood && { backgroundColor: Theme.colors.themeOrange },
-            ]}
-            onPress={() => setSelectedMood(mood)}
-          >
-            <Text
+        {MOODS.map((mood) => {
+          const active = mood === selectedMood;
+          return (
+            <TouchableOpacity
+              key={mood}
               style={[
-                styles.moodButtonText,
-                selectedMood === mood && { color: Theme.colors.white },
+                styles.moodButton,
+                active && { backgroundColor: Theme.colors.themeOrange },
               ]}
+              onPress={() => setSelectedMood(mood)}
             >
-              {mood}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.moodButtonText,
+                  active && { color: Theme.colors.white },
+                ]}
+              >
+                {mood}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {/* 선택된 무드 공연 리스트 */}
+      {/* 공연 리스트 */}
       <FlatList
-        data={MOOD_ITEMS[selectedMood]}
+        data={performances}
         renderItem={({ item }) => (
           <PerformanceCard
             type="mood"
             title={item.title}
             date={item.date}
-            posterUrl={item.posterUrl}
+            posterUrl={item.image_url}
             onPress={() => router.push(`/performance/${item.id}`)}
           />
         )}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
@@ -87,20 +83,15 @@ export default function MoodPerformances() {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    padding: Theme.spacing.md,
-  },
+  section: { padding: Theme.spacing.md },
   title: {
     fontSize: Theme.fontSizes.lg,
     fontWeight: Theme.fontWeights.semibold,
     color: Theme.colors.black,
-    paddingVertical: Theme.spacing.md,
     textAlign: "center",
-  },
-  buttonRow: {
-    flexDirection: "row",
     paddingVertical: Theme.spacing.md,
   },
+  buttonRow: { flexDirection: "row", paddingVertical: Theme.spacing.md },
   moodButton: {
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.sm,
@@ -113,7 +104,5 @@ const styles = StyleSheet.create({
     fontSize: Theme.fontSizes.sm,
     fontWeight: Theme.fontWeights.medium,
   },
-  list: {
-    paddingRight: Theme.spacing.md,
-  },
+  list: { paddingRight: Theme.spacing.md },
 });
