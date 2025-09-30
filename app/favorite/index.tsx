@@ -1,80 +1,164 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, ScrollView, Pressable, Image, StyleSheet } from "react-native";
-import { useRouter, usePathname } from "expo-router";
-import { BellOff, Heart, HeartOff, BellRing } from "lucide-react-native";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  Image,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+  FlatList,
+} from "react-native";
+import { Heart, HeartOff } from "lucide-react-native";
 import Theme from "@/constants/Theme";
-import Header from "@/components/layout/Header"; 
+import dayjs from "dayjs";
+import "dayjs/locale/ko";
+dayjs.locale("ko");
 
-type Perf = {
+import http from "../../Api/http";
+import { baseUrl } from "../../Api/config";
+
+const fixUrl = (u?: string | null) =>
+  typeof u === "string" ? u.replace("http://localhost:8000", baseUrl) : null;
+
+type PerfFav = {
   id: number;
   title: string;
   venue: string;
   date: string;
-  posterUrl: string;
+  image: string | null;
 };
-
-type Artist = {
-  id: number;
-  name: string;
-  avatar: string;
-  notify: boolean;
-};
+type ArtistFav = { id: number; name: string; avatar: string | null };
 
 export default function FavoritePage() {
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const [perfFavs, setPerfFavs] = useState<Perf[]>([
-    {
-      id: 1,
-      title: "A Place Called Sound",
-      venue: "코멘터리 사운드",
-      date: "2025.05.06 화요일",
-      posterUrl:
-        "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=640",
-    },
-    {
-      id: 2,
-      title: "SOUND ATTACK",
-      venue: "HONGDAE BENDER",
-      date: "2025.04.26 토요일",
-      posterUrl:
-        "https://images.unsplash.com/photo-1521335629791-ce4aec67dd47?w=640",
-    },
-    {
-      id: 3,
-      title: "FIRST UNPLUGGED",
-      venue: "신촌 스팀펑크락",
-      date: "2025.05.11 일요일",
-      posterUrl:
-        "https://images.unsplash.com/photo-1507874457470-272b3c8d8ee2?w=640",
-    },
-  ]);
-
-  const [artistFavs, setArtistFavs] = useState<Artist[]>([
-    { id: 1, name: "하츄핑", avatar: "https://placekitten.com/100/100", notify: true },
-    { id: 2, name: "양대핑", avatar: "https://placekitten.com/101/101", notify: false },
-    { id: 3, name: "꾸래핑", avatar: "https://placekitten.com/102/102", notify: true },
-    { id: 4, name: "포실포실핑", avatar: "https://placekitten.com/103/103", notify: false },
-  ]);
-
   const [selectedTab, setSelectedTab] = useState<"performance" | "artist">("performance");
 
-  const onTogglePerfHeart = (id: number) => setPerfFavs(prev => prev.filter(p => p.id !== id));
-  const onToggleArtistHeart = (id: number) => setArtistFavs(prev => prev.filter(a => a.id !== id));
-  const onToggleArtistNotify = (id: number) =>
-    setArtistFavs(prev => prev.map(a => (a.id === id ? { ...a, notify: !a.notify } : a)));
+  // 공연 찜
+  const [perfFavs, setPerfFavs] = useState<PerfFav[]>([]);
+  const [perfPage, setPerfPage] = useState(1);
+  const [perfTotal, setPerfTotal] = useState(1);
+
+  // 아티스트 찜
+  const [artistFavs, setArtistFavs] = useState<ArtistFav[]>([]);
+  const [artistPage, setArtistPage] = useState(1);
+  const [artistTotal, setArtistTotal] = useState(1);
+
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pending, setPending] = useState<Set<string>>(new Set());
+
+  // 공연 불러오기
+  const loadPerformances = async (p: number, replace = false) => {
+    if (loading || p > perfTotal) return;
+    setLoading(true);
+    try {
+      const { data } = await http.get("/user/me/like/performance", {
+        params: { page: p, size: 20 },
+      });
+      const mapped: PerfFav[] = (data?.performances ?? []).map((x: any) => ({
+        id: x.id,
+        title: x.title,
+        venue: x.venue,
+        date: x.date, // 포맷은 렌더에서 처리
+        image: fixUrl(x.image_url),
+      }));
+      setPerfFavs((prev) => (replace || p === 1 ? mapped : [...prev, ...mapped]));
+      setPerfTotal(data?.totalPages ?? 1);
+      setPerfPage(p + 1);
+    } catch {
+      Alert.alert("실패", "공연 찜 목록을 불러오지 못했어요.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 아티스트 불러오기
+  const loadArtists = async (p: number, replace = false) => {
+    if (loading || p > artistTotal) return;
+    setLoading(true);
+    try {
+      const { data } = await http.get("/user/me/like/artist", {
+        params: { page: p, size: 20 },
+      });
+      const mapped: ArtistFav[] = (data?.artists ?? []).map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        avatar: fixUrl(a.image_url),
+      }));
+      setArtistFavs((prev) => (replace || p === 1 ? mapped : [...prev, ...mapped]));
+      setArtistTotal(data?.totalPages ?? 1);
+      setArtistPage(p + 1);
+    } catch {
+      Alert.alert("실패", "아티스트 찜 목록을 불러오지 못했어요.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 첫 로드
+  useEffect(() => {
+    loadPerformances(1, true);
+    loadArtists(1, true);
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    if (selectedTab === "performance") await loadPerformances(1, true);
+    else await loadArtists(1, true);
+    setRefreshing(false);
+  }, [selectedTab]);
+
+  // 찜 해제
+  const handleUnlike = async (type: "performance" | "artist", id: number) => {
+    const key = `${type}:${id}`;
+    if (pending.has(key)) return;
+    setPending((prev) => new Set(prev).add(key));
+
+    const prevPerf = perfFavs;
+    const prevArtist = artistFavs;
+
+    if (type === "performance") {
+      setPerfFavs((prev) => prev.filter((item) => item.id !== id));
+    } else {
+      setArtistFavs((prev) => prev.filter((item) => item.id !== id));
+    }
+
+    try {
+      await http.delete(`/like/${id}`, { params: { type } });
+    } catch {
+      if (type === "performance") setPerfFavs(prevPerf);
+      else setArtistFavs(prevArtist);
+      Alert.alert("실패", "찜 해제에 실패했어요.");
+    } finally {
+      setPending((prev) => {
+        const s = new Set(prev);
+        s.delete(key);
+        return s;
+      });
+    }
+  };
 
   const TabHeader = useMemo(
     () => (
       <View style={styles.tabRow}>
         <Pressable onPress={() => setSelectedTab("performance")} hitSlop={8}>
-          <Text style={[styles.tabText, selectedTab === "performance" ? styles.tabActive : styles.tabInactive]}>
+          <Text
+            style={[
+              styles.tabText,
+              selectedTab === "performance" ? styles.tabActive : styles.tabInactive,
+            ]}
+          >
             공연
           </Text>
         </Pressable>
         <Pressable onPress={() => setSelectedTab("artist")} hitSlop={8}>
-          <Text style={[styles.tabText, selectedTab === "artist" ? styles.tabActive : styles.tabInactive]}>
+          <Text
+            style={[
+              styles.tabText,
+              selectedTab === "artist" ? styles.tabActive : styles.tabInactive,
+            ]}
+          >
             아티스트
           </Text>
         </Pressable>
@@ -83,56 +167,80 @@ export default function FavoritePage() {
     [selectedTab]
   );
 
+  const formatDate = (s?: string) =>
+    s ? dayjs(s).format("YYYY.MM.DD dddd") : "";
+
+  const renderPerf = ({ item }: { item: PerfFav }) => {
+    const disabled = pending.has(`performance:${item.id}`);
+    return (
+      <View style={styles.row}>
+        <Image source={{ uri: item.image ?? undefined }} style={styles.poster} />
+        <View style={styles.infoBox}>
+          <Text style={styles.title} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.venue} numberOfLines={1}>
+            {item.venue}
+          </Text>
+          <Text style={styles.date}>{formatDate(item.date)}</Text>
+        </View>
+        <Pressable
+          onPress={() => handleUnlike("performance", item.id)}
+          disabled={disabled}
+          hitSlop={8}
+          style={styles.heartWrap}
+        >
+          <Heart size={18} fill="#FF4D4F" color="#FF4D4F"/>
+        </Pressable>
+      </View>
+    );
+  };
+
+  const renderArtist = ({ item }: { item: ArtistFav }) => {
+    const disabled = pending.has(`artist:${item.id}`);
+    return (
+      <View style={styles.row}>
+        <Image source={{ uri: item.avatar ?? undefined }} style={styles.avatarRound} />
+        <View style={styles.infoBox}>
+          <Text style={styles.title} numberOfLines={1}>{item.name}</Text>
+        </View>
+        <Pressable
+          onPress={() => handleUnlike("artist", item.id)}
+          disabled={disabled}
+          hitSlop={8}
+          style={styles.heartWrap}
+        >
+          <Heart size={18} color="#FF4D4F" fill="#FF4D4F" />
+        </Pressable>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
-
-
       {TabHeader}
 
-      <ScrollView style={styles.scroll}>
-        {selectedTab === "performance" ? (
-          perfFavs.length === 0 ? (
-            <Empty text="찜한 공연이 없어요." />
-          ) : (
-            perfFavs.map((p) => (
-              <View key={p.id} style={styles.row}>
-                <Image source={{ uri: p.posterUrl }} style={styles.perfThumb} />
-                <View style={styles.flex1}>
-                  <Text style={styles.perfTitle} numberOfLines={1}>{p.title}</Text>
-                  <Text style={styles.perfVenue} numberOfLines={1}>{p.venue}</Text>
-                  <Text style={styles.perfDate}>{p.date}</Text>
-                </View>
-                <Pressable onPress={() => onTogglePerfHeart(p.id)} hitSlop={8} style={styles.heartOutlineCircle}>
-                  <Heart size={Theme.iconSizes.sm} color="#EF4444" fill="#EF4444" />
-                </Pressable>
-              </View>
-            ))
-          )
-        ) : artistFavs.length === 0 ? (
-          <Empty text="찜한 아티스트가 없어요." />
-        ) : (
-          artistFavs.map((a) => (
-            <View key={a.id} style={styles.row}>
-              <Image source={{ uri: a.avatar }} style={styles.avatar} />
-              <Text style={[styles.flex1, styles.artistName]} numberOfLines={1}>{a.name}</Text>
-
-              <Pressable onPress={() => onToggleArtistNotify(a.id)} hitSlop={8} style={styles.notifyPill}>
-                <Text style={[styles.notifyText, a.notify ? styles.notifyTextOn : styles.notifyTextOff]}>
-                  공연알림
-                </Text>
-                {a.notify ? (
-                  <BellRing size={Theme.iconSizes.sm} color={Theme.colors.themeOrange} style={{ marginLeft: 6 }} />
-                ) : (
-                  <BellOff size={Theme.iconSizes.sm} color={Theme.colors.gray} style={{ marginLeft: 6 }} />
-                )}
-              </Pressable>
-              <Pressable onPress={() => onToggleArtistHeart(a.id)} hitSlop={8} style={styles.heartOutlineCircle}>
-                <Heart size={Theme.iconSizes.sm} color="#EF4444" fill="#EF4444" />
-              </Pressable>
-            </View>
-          ))
-        )}
-      </ScrollView>
+      {selectedTab === "performance" ? (
+        <FlatList
+          data={perfFavs}
+          keyExtractor={(i) => `perf-${i.id}`}
+          renderItem={renderPerf}
+          onEndReached={() => loadPerformances(perfPage)}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={<Empty text="찜한 공연이 없어요." />}
+          ListFooterComponent={loading ? <ActivityIndicator style={{ margin: Theme.spacing.md }} /> : null}
+        />
+      ) : (
+        <FlatList
+          data={artistFavs}
+          keyExtractor={(i) => `artist-${i.id}`}
+          renderItem={renderArtist}
+          onEndReached={() => loadArtists(artistPage)}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={<Empty text="찜한 아티스트가 없어요." />}
+          ListFooterComponent={loading ? <ActivityIndicator style={{ margin: Theme.spacing.md }} /> : null}
+        />
+      )}
     </View>
   );
 }
@@ -155,102 +263,49 @@ const styles = StyleSheet.create({
     gap: 120,
     paddingVertical: Theme.spacing.md,
   },
-  tabText: { 
-    fontSize: Theme.fontSizes.base,
-    fontWeight: Theme.fontWeights.medium,
-  },
+  tabText: { fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.medium },
   tabActive: {
     color: Theme.colors.themeOrange,
-    borderBottomWidth: 2,
+    borderBottomWidth: Theme.spacing.xs/2,
     borderBottomColor: Theme.colors.themeOrange,
-    paddingBottom: 4,
+    paddingBottom: Theme.spacing.xs,
   },
   tabInactive: {
     color: Theme.colors.darkGray,
-    borderBottomWidth: 2,
+    borderBottomWidth: Theme.spacing.xs/2,
     borderBottomColor: "transparent",
-    paddingBottom: 4,
+    paddingBottom: Theme.spacing.xs,
   },
 
-  scroll: { flex: 1 },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Theme.spacing.md,
-    borderBottomWidth: 1,
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Theme.colors.lightGray,
+    gap: Theme.spacing.md,
   },
-  flex1: { flex: 1 },
+  poster: {
+    width: 60,           
+    height: 60 * 1.25,  
+    borderRadius: 8,
+  },
+  avatarRound: {
+    width: 60, height: 60, borderRadius: 30,
+  },
+  infoBox: { flex: 1 },
+  title: { fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.bold },
+  venue: { marginTop: 2, color: Theme.colors.darkGray },
+  date: { marginTop: 2, color: Theme.colors.darkGray },
 
-  perfThumb: { 
-    width: "20%", 
-    aspectRatio: 3/4,
-    borderRadius: 5,
-    marginRight: Theme.spacing.md 
-  },
-  perfTitle: { 
-    fontWeight: Theme.fontWeights.semibold, 
-    fontSize: Theme.fontSizes.base, 
-    color: Theme.colors.black 
-  },
-  perfVenue: { 
-    color: Theme.colors.black, 
-    marginTop: Theme.spacing.sm,
-    fontSize: Theme.fontSizes.sm,
-    fontWeight: Theme.fontWeights.regular, 
-  },
-  perfDate: { 
-    color: Theme.colors.darkGray, 
-    marginTop: Theme.spacing.xs,
-    fontSize: Theme.fontSizes.sm,
-    fontWeight: Theme.fontWeights.light, 
+  heartWrap: {
+    width: Theme.iconSizes.lg, height: Theme.iconSizes.lg, borderRadius: 14,
+    alignItems: "center", justifyContent: "center",
+        borderWidth: 1,
+        borderColor: Theme.colors.lightGray,
   },
 
-  avatar: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 24, 
-    marginRight: Theme.spacing.sm 
-  },
-  artistName: { 
-    fontSize: Theme.fontSizes.base, 
-    fontWeight: Theme.fontWeights.medium, 
-    color: Theme.colors.black 
-  },
-
-  notifyPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Theme.spacing.sm,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: Theme.colors.lightGray, 
-    marginRight: Theme.spacing.sm,
-    backgroundColor: Theme.colors.white,
-  },
-  notifyText: { 
-    fontSize: Theme.fontSizes.sm,
-    fontWeight: Theme.fontWeights.regular,
-  },
-  notifyTextOff: { 
-    color: Theme.colors.darkGray, 
-  },
-  notifyTextOn: { 
-    color: Theme.colors.themeOrange, 
-  },
-
-  heartOutlineCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: Theme.colors.lightGray,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Theme.colors.white,
-  },
-
-  emptyBox: { alignItems: "center", justifyContent: "center", paddingVertical: Theme.spacing.md },
+  emptyBox: { alignItems: "center", justifyContent: "center", paddingVertical: 24 },
   emptyText: { color: Theme.colors.gray, marginTop: Theme.spacing.md },
 });

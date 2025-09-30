@@ -1,4 +1,3 @@
-// app/mystamp/index.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -10,92 +9,76 @@ import {
   Image,
   TextInput,
   Pressable,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-
-type Stamp = {
+import { fetchCollectedStamps } from "@/Api/stampApi";
+import Theme from "@/constants/Theme";
+type StampRow = {
   id: number;
   title: string;
   venue: string;
-  date: string;     
-  posterUrl: string;
+  date: string;
+  posterUrl?: string;
 };
 
-const INITIAL_STAMPS: Stamp[] = [
-  {
-    id: 1,
-    title: "A Place Called Sound",
-    venue: "코멘터리 사운드",
-    date: "2025.05.06 화요일",
-    posterUrl:
-      "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=640",
-  },
-  {
-    id: 2,
-    title: "Midnight Jazz Session",
-    venue: "언플러그드 홍대",
-    date: "2025.05.12 월요일",
-    posterUrl:
-      "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=640",
-  },
-  {
-    id: 3,
-    title: "Indie Night Vol.3",
-    venue: "CLUB FF",
-    date: "2025.05.20 화요일",
-    posterUrl:
-      "https://images.unsplash.com/photo-1507874457470-272b3c8d8ee2?w=640",
-  },
-  {
-    id: 4,
-    title: "City Pop Live",
-    venue: "프리즘홀",
-    date: "2025.06.01 일요일",
-    posterUrl:
-      "https://images.unsplash.com/photo-1497032205916-ac775f0649ae?w=640",
-  },
-  {
-    id: 5,
-    title: "Summer Rock Fest",
-    venue: "롤링홀",
-    date: "2025.06.15 일요일",
-    posterUrl:
-      "https://images.unsplash.com/photo-1483412033650-1015ddeb83d1?w=640",
-  },
-  {
-    id: 6,
-    title: "Acoustic Morning",
-    venue: "브이홀",
-    date: "2025.06.22 일요일",
-    posterUrl:
-      "https://images.unsplash.com/photo-1520975979642-6453be3f7070?w=640",
-  },
-];
-
+function toYmd(dateLike?: string | number | Date) {
+  if (!dateLike) return "-";
+  const d = new Date(dateLike);
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${y}.${m}.${day}`;
+}
 
 export default function MyStampScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ search?: string }>();
 
-  const [stamps] = useState<Stamp[]>(INITIAL_STAMPS);
   const [searchOpen, setSearchOpen] = useState(false);
   const [q, setQ] = useState("");
+
+  const [rows, setRows] = useState<StampRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (params?.search) setSearchOpen(true);
   }, [params?.search]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const data = await fetchCollectedStamps();
+        const mapped: StampRow[] = (data || []).map((s: any) => ({
+          id: s.id,
+          title: s?.performance?.title ?? "-",
+          venue: s?.performance?.venue?.name ?? "-",
+          date: toYmd(s?.performance?.date),
+          posterUrl: s?.performance?.image_url ?? undefined,
+        }));
+        setRows(mapped);
+      } catch (e: any) {
+        console.error(e);
+        Alert.alert("오류", e?.message ?? "스탬프 목록을 불러오지 못했어요.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   const data = useMemo(() => {
     const key = q.trim().toLowerCase();
-    if (!key) return stamps;
-    return stamps.filter(
+    if (!key) return rows;
+    return rows.filter(
       (s) =>
         s.title.toLowerCase().includes(key) ||
         s.venue.toLowerCase().includes(key) ||
         s.date.toLowerCase().includes(key)
     );
-  }, [q, stamps]);
+  }, [q, rows]);
 
   const clearSearch = () => {
     setQ("");
@@ -114,99 +97,118 @@ export default function MyStampScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
+
       {searchOpen && (
         <View style={styles.searchBarWrap}>
-          <Ionicons name="search" size={18} color="#888" />
+          <Ionicons name="search" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
           <TextInput
             value={q}
             onChangeText={setQ}
             placeholder="공연/장소/날짜 검색"
-            placeholderTextColor="#aaa"
+            placeholderTextColor={Theme.colors.lightGray}
             style={styles.searchInput}
             returnKeyType="search"
             autoFocus
           />
           {q.length > 0 ? (
             <Pressable onPress={() => setQ("")} hitSlop={10}>
-              <Ionicons name="close-circle" size={18} color="#bbb" />
+              <Ionicons name="close-circle" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
             </Pressable>
           ) : (
             <Pressable onPress={clearSearch} hitSlop={10}>
-              <Ionicons name="close" size={18} color="#bbb" />
+              <Ionicons name="close" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
             </Pressable>
           )}
         </View>
       )}
 
-      <FlatList
-        data={data}
-        keyExtractor={(item) => String(item.id)}
-        ListHeaderComponent={ListHeader}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Image source={{ uri: item.posterUrl }} style={styles.poster} />
-            <View style={styles.info}>
-              <Text style={styles.title} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text style={styles.venue} numberOfLines={1}>
-                {item.venue}
-              </Text>
-              <Text style={styles.date}>{item.date}</Text>
+      {loading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator />
+        </View>
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(item) => String(item.id)}
+          ListHeaderComponent={ListHeader}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <Image
+                source={{
+                  uri:
+                    item.posterUrl ||
+                    "https://dummyimage.com/120x160/eeeeee/aaaaaa&text=NO+IMAGE",
+                }}
+                style={styles.poster}
+              />
+              <View style={styles.info}>
+                <Text style={styles.title} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text style={styles.venue} numberOfLines={1}>
+                  {item.venue}
+                </Text>
+                <Text style={styles.date}>{item.date}</Text>
+              </View>
             </View>
-          </View>
-        )}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        contentContainerStyle={styles.listContent}
-      />
+          )}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={{ alignItems: "center", marginTop: 40 }}>
+              <Text style={{ color: Theme.colors.lightGray }}>수집한 스탬프가 없어요</Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: { flex: 1, backgroundColor: Theme.colors.white },
 
   searchBarWrap: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
+    marginHorizontal: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.sm,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e5e5",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 8,
+    borderColor: Theme.colors.lightGray,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.sm,
+    gap: Theme.spacing.sm,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fafafa",
+    backgroundColor: Theme.colors.white,
   },
   searchInput: {
     flex: 1,
     paddingVertical: 2,
-    fontSize: 14,
-    color: "#111",
+    fontSize: Theme.fontSizes.sm,
+    color: Theme.colors.black,
   },
 
-  countRow: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 },
-  countText: { color: "#6b7280", fontSize: 13 },
-  countNum: { color: "#16a34a", fontWeight: "700" },
+  countRow: { paddingHorizontal: Theme.spacing.md, paddingTop: Theme.spacing.sm, paddingBottom: Theme.spacing.sm },
+  countText: { color: Theme.colors.darkGray, fontSize: Theme.fontSizes.sm },
+  countNum: { color: Theme.colors.themeOrange, fontWeight: Theme.fontWeights.bold },
 
   listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 24,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.xs,
+    paddingBottom: Theme.spacing.lg,
   },
 
   card: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: Theme.spacing.md,
     borderRadius: 12,
-    backgroundColor: "#fff",
-    padding: 12,
+    backgroundColor: Theme.colors.white,
+    padding: Theme.spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
-    shadowColor: "#000",
+    borderColor: Theme.colors.white,
+    shadowColor: Theme.colors.black,
     shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
@@ -216,10 +218,10 @@ const styles = StyleSheet.create({
     width: 60,
     height: 80,
     borderRadius: 6,
-    backgroundColor: "#f3f4f6",
+    backgroundColor: Theme.colors.white,
   },
   info: { flex: 1 },
-  title: { fontSize: 16, fontWeight: "700", color: "#111" },
-  venue: { fontSize: 13, color: "#374151", marginTop: 2 },
-  date: { fontSize: 13, color: "#6b7280", marginTop: 4 },
+  title: { fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.bold, color: Theme.colors.black },
+  venue: { fontSize: Theme.fontSizes.sm, color: Theme.colors.darkGray, marginTop: Theme.spacing.xs },
+  date: { fontSize: Theme.fontSizes.sm, color: Theme.colors.gray, marginTop: Theme.spacing.xs },
 });

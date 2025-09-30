@@ -11,63 +11,29 @@ import {
   Modal,
   TouchableWithoutFeedback,
   TextInput,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-
-type EventItem = {
-  id: number;
+import { fetchAvailableStamps, collectStamp } from "@/Api/stampApi";
+import Theme from "@/constants/Theme";
+type Candidate = {
+  id: number;          // performance id
   title: string;
   venue: string;
-  date: string;
-  posterUrl: string;
+  date: string;        // YYYY.MM.DD
+  posterUrl?: string;
 };
 
-const EVENTS: EventItem[] = [
-  { 
-    id: 101, 
-    title: "언드", 
-    venue: "롤링홀", 
-    date: "2025.09.20", 
-    posterUrl: "https://picsum.photos/seed/e1/300/420" 
-  },
-  { 
-    id: 102, 
-    title: "인터플레이", 
-    venue: "클럽 빅토리", 
-    date: "2025.10.02", 
-    posterUrl: "https://picsum.photos/seed/e2/300/420" 
-  },
-  { 
-    id: 103, 
-    title: "고요의 밤", 
-    venue: "프리즘홀", 
-    date: "2025.11.15", 
-    posterUrl: "https://picsum.photos/seed/e3/300/420" 
-  },
-  { 
-    id: 104, 
-    title: "여름, 피랑", 
-    venue: "CJ 아지트 광흥창", 
-    date: "2025.07.07", 
-    posterUrl: "https://picsum.photos/seed/e4/300/420" 
-  },
-  { 
-    id: 105, 
-    title: "인플레코드 대전", 
-    venue: "홍대 브이홀", 
-    date: "2025.12.01", 
-    posterUrl: "https://picsum.photos/seed/e5/300/420" 
-  },
-  { 
-    id: 106, 
-    title: "월광 소나타", 
-    venue: "세종문화회관 체임버홀", 
-    date: "2025.09.28", 
-    posterUrl: "https://picsum.photos/seed/e6/300/420" 
-  },
-];
-
+function toYmd(dateLike?: string | number | Date) {
+  if (!dateLike) return "-";
+  const d = new Date(dateLike);
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${y}.${m}.${day}`;
+}
 
 export default function GetStampPage() {
   const router = useRouter();
@@ -76,15 +42,43 @@ export default function GetStampPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [q, setQ] = useState("");
 
+  const [items, setItems] = useState<Candidate[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [selected, setSelected] = useState<Candidate | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+
   useEffect(() => {
     if (params?.search) setSearchOpen(true);
   }, [params?.search]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const data = await fetchAvailableStamps(3);
+        const mapped: Candidate[] = (data || []).map((x: any) => ({
+          id: x.performance_id ?? x.id,
+          title: x.title,
+          venue: x.venue,
+          date: toYmd(x.date),
+          posterUrl: x.posterUrl ?? x.venueImageUrl ?? undefined,
+        }));
+        setItems(mapped);
+      } catch (e: any) {
+        console.error(e);
+        Alert.alert("오류", e?.message ?? "스탬프 후보를 불러오지 못했어요.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   const filtered = useMemo(() => {
     const key = q.trim().toLowerCase();
-    if (!key) return EVENTS;
-    return EVENTS.filter((e) => e.title.toLowerCase().includes(key));
-  }, [q]);
+    if (!key) return items;
+    return items.filter((e) => e.title.toLowerCase().includes(key));
+  }, [q, items]);
 
   const clearSearch = () => {
     setQ("");
@@ -92,63 +86,73 @@ export default function GetStampPage() {
     router.setParams({ search: undefined as any });
   };
 
-  const [selected, setSelected] = useState<EventItem | null>(null);
-  const [showConfirm, setShowConfirm] = useState(false);
-
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
+
       {searchOpen && (
         <View style={styles.searchBarWrap}>
-          <Ionicons name="search" size={18} color="#888" />
+          <Ionicons name="search" size={18} color={Theme.colors.lightGray} />
           <TextInput
             value={q}
             onChangeText={setQ}
             placeholder="리뷰/공연장 검색"
-            placeholderTextColor="#aaa"
+            placeholderTextColor={Theme.colors.lightGray}
             style={styles.searchInput}
             returnKeyType="search"
             autoFocus
           />
           {q.length > 0 ? (
             <Pressable onPress={() => setQ("")} hitSlop={10}>
-              <Ionicons name="close-circle" size={18} color="#bbb" />
+              <Ionicons name="close-circle" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
             </Pressable>
           ) : (
             <Pressable onPress={clearSearch} hitSlop={10}>
-              <Ionicons name="close" size={18} color="#bbb" />
+              <Ionicons name="close" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
             </Pressable>
           )}
         </View>
       )}
 
-      {/* 목록 */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => String(item.id)}
-        numColumns={3}
-        columnWrapperStyle={styles.column}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.card}
-            onPress={() => {
-              setSelected(item);
-              setShowConfirm(true);
-            }}
-          >
-            <Image source={{ uri: item.posterUrl }} style={styles.poster} />
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
-          </Pressable>
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>해당하는 공연이 없어요</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => String(item.id)}
+          numColumns={3}
+          columnWrapperStyle={styles.column}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.card}
+              onPress={() => {
+                setSelected(item);
+                setShowConfirm(true);
+              }}
+            >
+              <Image
+                source={{
+                  uri:
+                    item.posterUrl ||
+                    "https://dummyimage.com/300x420/eeeeee/aaaaaa&text=NO+IMAGE",
+                }}
+                style={styles.poster}
+              />
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+            </Pressable>
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>해당하는 공연이 없어요</Text>
+            </View>
+          }
+        />
+      )}
 
       {/* 확인 모달 */}
       <Modal
@@ -164,19 +168,19 @@ export default function GetStampPage() {
               <View style={styles.row}>
                 <Pressable
                   style={[styles.btn, styles.ok]}
-                  onPress={() => {
-                    if (selected) {
-                      const newStamp = {
-                        id: selected.id,
-                        image: selected.posterUrl,
-                        date: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
-                      };
-                      router.push({
-                        pathname: "/stamp",
-                        params: { newStamp: JSON.stringify(newStamp) },
-                      });
+                  onPress={async () => {
+                    try {
+                      if (selected) {
+                        await collectStamp(selected.id);
+                        Alert.alert("완료", "스탬프를 수집했어요!");
+                        router.push("/mystamp");
+                      }
+                    } catch (e: any) {
+                      console.error(e);
+                      Alert.alert("오류", e?.message ?? "스탬프 수집에 실패했어요.");
+                    } finally {
+                      setShowConfirm(false);
                     }
-                    setShowConfirm(false);
                   }}
                 >
                   <Text style={styles.okText}>예</Text>
@@ -196,60 +200,55 @@ export default function GetStampPage() {
   );
 }
 
-const GAP = 12;
+const GAP = Theme.spacing.md;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: { flex: 1, backgroundColor: Theme.colors.white },
 
   searchBarWrap: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
+    marginHorizontal: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.sm,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e5e5",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 8,
+    borderColor: Theme.colors.lightGray,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.sm,
+    gap: Theme.spacing.sm,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fafafa",
+    backgroundColor: Theme.colors.white,
   },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 2,
-    fontSize: 14,
-    color: "#111",
-  },
+  searchInput: { flex: 1, paddingVertical: 2, fontSize: Theme.fontSizes.sm, color: Theme.colors.black },
 
-  list: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 24 },
+  list: { paddingHorizontal: Theme.spacing.md, paddingTop: Theme.spacing.md, paddingBottom: Theme.spacing.lg },
   column: { gap: GAP, marginBottom: GAP },
-  card: { flex: 1, alignItems: "center", gap: 6 },
-  poster: { width: 100, height: 140, borderRadius: 8, backgroundColor: "#eee" },
-  cardTitle: { fontSize: 12, color: "#333", maxWidth: 100 },
+  card: { flex: 1, alignItems: "center", gap: Theme.spacing.sm },
+  poster: { width: 100, height: 140, borderRadius: 8},
+  cardTitle: { fontSize: Theme.fontSizes.xs, color: Theme.colors.black, maxWidth: 100 },
 
   emptyWrap: { alignItems: "center", paddingTop: 64 },
-  emptyText: { color: "#9ca3af" },
+  emptyText: { color: Theme.colors.lightGray},
 
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.25)",
+    backgroundColor: Theme.colors.gray,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: Theme.spacing.lg,
   },
   modalBox: {
-    backgroundColor: "#fff",
+    backgroundColor: Theme.colors.white,
     borderRadius: 12,
     padding: 20,
     width: "80%",
     alignItems: "center",
   },
-  modalText: { fontSize: 15, marginBottom: 16, color: "#111" },
+  modalText: { fontSize: 15, marginBottom: 16, color: Theme.colors.black },
   row: { flexDirection: "row", gap: 10 },
   btn: { flex: 1, padding: 10, borderRadius: 8, alignItems: "center" },
-  ok: { backgroundColor: "#2E7D32" },
-  okText: { color: "#fff", fontWeight: "600" },
-  cancel: { backgroundColor: "#eee" },
-  cancelText: { color: "#333", fontWeight: "600" },
+  ok: { backgroundColor: Theme.colors.themeOrange },
+  okText: { color: Theme.colors.white, fontWeight: Theme.fontWeights.semibold },
+  cancel: { backgroundColor: Theme.colors.white },
+  cancelText: { color: Theme.colors.darkGray, fontWeight:Theme.fontWeights.semibold },
 });
