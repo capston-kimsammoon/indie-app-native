@@ -171,6 +171,12 @@ export default function SearchPage() {
     }
   }
 
+  useEffect(() => {
+    if (isSearching && query.trim()) {
+      handleSearch(query);
+    }
+  }, [activeTab]);
+
   return (
     <View style={styles.container}>
       {/* 검색창 */}

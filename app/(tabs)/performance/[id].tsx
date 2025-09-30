@@ -143,10 +143,7 @@ export default function PerformanceDetailPage() {
                 <View style={styles.row}>
                     <Text style={styles.label}>공연일시</Text>
                     <Text style={styles.value}>
-                        {formatDateTime(
-                            new Date(performance.date),
-                            performance.ticket_open_time || undefined
-                        )}
+                        {formatDateTime(new Date(performance.date))}
                     </Text>
                 </View>
 
@@ -155,7 +152,7 @@ export default function PerformanceDetailPage() {
                     <Text style={styles.label}>공연장</Text>
                     <View style={styles.valueWithIcon}>
                         <Text style={styles.value}>{performance.venue}</Text>
-                        <Pressable onPress={() => router.push(`/venue/${performance.id}`)}>
+                        <Pressable onPress={() => router.push(`/venue/${performance.venueId}`)}>
                             <IcChevronRight width={iconChevronSize} height={iconChevronSize} />
                         </Pressable>
                     </View>
