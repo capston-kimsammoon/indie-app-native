@@ -1,26 +1,182 @@
+// src/api/venueApi.ts
 import http from "./http";
-import { VenueListResponse, VenueDetailResponse, ReviewListResponse } from "@/types/venue";
+import {
+  VenueListResponse,
+  VenueDetailResponse,
+  ReviewListResponse, // 사용 시 주석 해제
+} from "@/types/venue";
 
-// 공연장 목록 조회
-export async function fetchVenues(page: number, size: number, regions?: string[]): Promise<VenueListResponse> {
+/* ================== 타입 ================== */
+export type NearbyVenue = {
+  id: number;
+  name: string;
+  lat: number;
+  lng: number;
+  address?: string | null;
+  image_url?: string | null;
+  distance_km?: number;
+  upcoming_performances?: number;
+};
+
+export type FetchVenueListFlexParams = {
+  page: number;
+  size: number;
+  region?: string | string[];
+};
+
+export type NormalizedVenueList<TVenue = unknown> = {
+  venues: TVenue[];
+  page: number;
+  totalPages?: number;
+  total?: number;
+  raw: unknown;
+};
+
+export type UpcomingPerformance = {
+  id: number;
+  title?: string | null;
+  date?: string | null;   // 'YYYY-MM-DD' or ISO
+  time?: string | null;   // 'HH:mm' or similar
+  image_url?: string | null;
+  address?: string | null;
+};
+
+/* ============== 공용 유틸 ============== */
+const pickArray = (x: any) =>
+  Array.isArray(x) ? x
+  : Array.isArray(x?.venues) ? x.venues
+  : Array.isArray(x?.items)  ? x.items
+  : Array.isArray(x?.data)   ? x.data
+  : Array.isArray(x?.results)? x.results
+  : [];
+
+const pickPerfArray = pickArray;
+
+const normalizePerf = (p: any): UpcomingPerformance => ({
+  id: p?.id ?? p?.performance_id ?? 0,
+  title: p?.title ?? p?.name ?? null,
+  date: p?.date ?? p?.performance_date ?? p?.start_date ?? null,
+  time: p?.time ?? p?.start_time ?? null,
+  image_url: p?.image_url ?? p?.poster ?? p?.thumbnail ?? null,
+  address: p?.address ?? p?.venue_address ?? p?.location?.address ?? null,
+});
+
+/* ============== 고정 스키마 API ============== */
+
+// 공연장 목록 조회 (고정형)
+export async function fetchVenues(
+  page: number,
+  size: number,
+  regions?: string[]
+): Promise<VenueListResponse> {
   const params = new URLSearchParams({ page: String(page), size: String(size) });
-
-  if (regions && regions.length > 0) {
-    regions.forEach(r => params.append("region", r)); 
-  }
-
+  if (regions?.length) regions.forEach((r) => params.append("region", r));
   const res = await http.get<VenueListResponse>(`/venue?${params.toString()}`);
   return res.data;
 }
 
-// 공연장 상세 조회
-export async function fetchVenueDetail(id: string | number): Promise<VenueDetailResponse> {
+// 공연장 상세 조회 (고정형)
+export async function fetchVenueDetail(
+  id: string | number
+): Promise<VenueDetailResponse> {
   const res = await http.get<VenueDetailResponse>(`/venue/${id}`);
   return res.data;
 }
 
-// 공연장 리뷰 조회
-// export const fetchVenueReviews = async (venueId: number, page: number = 1, size: number = 10): Promise<ReviewListResponse> => {
-//   const { data } = await http.get(`/venue/${venueId}/review`, { params: { page, size } });
-//   return data;
-// };
+/* ============== 유연(정규화) API ============== */
+
+/**
+ * 가까운 공연장 조회 (반경 km, 기본 3km)
+ * 서버가 lng 대신 lon, 반경을 미터로 받을 가능성을 모두 커버
+ */
+// src/api/venueApi.ts
+export async function fetchNearbyVenues(
+  lat: number,
+  lng: number,
+  radius: number = 3
+): Promise<NearbyVenue[]> {
+  // 서버는 lat,lng 필수 / radius는 km
+  const { data } = await http.get<NearbyVenue[]>("/nearby/venue", {
+    params: { lat, lng, radius },
+  });
+  // 응답은 배열이며, 필드명은 venue_id / latitude / longitude
+  return Array.isArray(data) ? data : [];
+}
+
+
+/**
+ * 공연장 목록 조회 (유연/정규화 버전)
+ * 서버가 venue/venues/items/... 등으로 내려줘도 배열만 추출
+ */
+export async function fetchVenueListFlex<TVenue = unknown>({
+  page,
+  size,
+  region,
+}: FetchVenueListFlexParams): Promise<NormalizedVenueList<TVenue>> {
+  let regionParam: string | undefined;
+  if (Array.isArray(region)) regionParam = region.length ? region.join(",") : undefined;
+  else if (typeof region === "string" && region.trim() !== "") regionParam = region.trim();
+
+  const { data } = await http.get<any>("/venue", { params: { page, size, region: regionParam } });
+
+  const venues: TVenue[] =
+    Array.isArray(data?.venue) ? data.venue
+    : Array.isArray(data?.venues) ? data.venues
+    : Array.isArray(data?.items) ? data.items
+    : Array.isArray(data) ? data
+    : [];
+
+  return {
+    venues,
+    page: data?.page ?? page ?? 1,
+    totalPages: data?.totalPages ?? data?.pages ?? undefined,
+    total: data?.total ?? undefined,
+    raw: data,
+  };
+}
+
+/**
+ * 특정 공연장의 예정 공연 조회
+ * - /nearby/venue/{id}/performance?after=...
+ * - 비면 after 제거 재시도
+ * - 그래도 비면 /venue/{id}/performance 시도
+ * - 결과 정규화 후 반환
+ */
+export async function fetchUpcomingPerformancesByVenue(
+  venueId: number | string,
+  afterTime?: string | Date
+): Promise<UpcomingPerformance[]> {
+  const after = afterTime instanceof Date ? afterTime.toISOString() : afterTime;
+
+  try {
+    // 1) nearby with after
+    const { data } = await http.get<any>(`/nearby/venue/${venueId}/performance`, {
+      params: after ? { after } : undefined,
+    });
+    let arr = pickPerfArray(data);
+
+    // 2) 비면 after 없이 재시도
+    if (!arr.length && after) {
+      const { data: d2 } = await http.get<any>(`/nearby/venue/${venueId}/performance`);
+      arr = pickPerfArray(d2);
+    }
+
+    return arr.map(normalizePerf);
+  } catch (e) {
+    console.error("❌ 예정 공연 조회 실패:", e);
+    return [];
+  }
+}
+
+
+export async function fetchVenueReviews(
+  venueId: number,
+  page: number = 1,
+  size: number = 10
+): Promise<ReviewListResponse> {
+  const { data } = await http.get<ReviewListResponse>(
+    `/venue/${venueId}/review`,
+    { params: { page, size } }
+  );
+  return data;
+}

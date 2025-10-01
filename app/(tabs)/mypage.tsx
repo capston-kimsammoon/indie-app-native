@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// app/(tabs)/mypage.tsx
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,37 +9,75 @@ import {
   TextInput,
   Switch,
   Alert,
-  ScrollView, Platform
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+  ScrollView,
+  Platform,
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { useFocusEffect, useRouter, Link } from "expo-router";
 import {
-  ArrowLeft,
-  Settings,
-  User,
+  User as UserIcon,
   Pencil,
   Heart,
   Stamp,
   ChevronRight,
-} from 'lucide-react-native';
-import { Link } from 'expo-router';
-import Theme from '@/constants/Theme';
+  Settings as Cog,
+} from "lucide-react-native";
+import Theme from "@/constants/Theme";
 
-import IcEdit from '@/assets/icons/ic-edit.svg';
-import IcStamper from '@/assets/icons/ic-stamper.svg';
+import {
+  fetchUserInfo,
+  updateNickname,
+  updateUserSettings,
+  updateProfileImage,
+} from "@/api/userApi";
+import { useAuthStore } from "@/src/state/authStore";
 
 const AVATAR = 72;
 
 export default function TabMyPageScreen() {
+  const router = useRouter();
+  const { user, setUser, hydrated, setHydrated } = useAuthStore();
   const [profileUri, setProfileUri] = useState<string | null>(null);
-  const [nickname, setNickname] = useState('예빈스클럽');
+  const [nickname, setNickname] = useState("예빈스클럽");
   const [editing, setEditing] = useState(false);
   const [alarmOn, setAlarmOn] = useState(true);
   const [locationOn, setLocationOn] = useState(true);
 
+  // 포커스될 때 유저 동기화 / 비로그인 → 로그인 화면
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const me = await fetchUserInfo().catch(() => null);
+        if (cancelled) return;
+
+        if (!me) {
+          setUser(null);
+          router.replace("/login");
+          return;
+        }
+        setUser(me);
+        setHydrated(true);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [router, setUser, setHydrated])
+  );
+
+  // 스토어 유저 → 화면 상태 반영
+  useEffect(() => {
+    if (!user) return;
+    setNickname(user.nickname || "");
+    setProfileUri(user.profile_url ?? null);
+    setAlarmOn(!!user.alarm_enabled);
+    setLocationOn(!!user.location_enabled);
+  }, [user]);
+
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('권한 필요', '사진 보관함 접근 권한이 필요해요.');
+    if (status !== "granted") {
+      Alert.alert("권한 필요", "사진 보관함 접근 권한이 필요해요.");
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -49,8 +88,49 @@ export default function TabMyPageScreen() {
     });
     if (!res.canceled) {
       setProfileUri(res.assets[0].uri);
+      try {
+        await updateProfileImage(res.assets[0] as any);
+        const me = await fetchUserInfo().catch(() => null);
+        if (me) setUser(me);
+      } catch (e: any) {
+        Alert.alert("업로드 실패", e?.message || "이미지 업로드에 실패했어요.");
+      }
     }
   };
+
+  const saveNickname = async () => {
+    try {
+      await updateNickname(nickname.trim());
+      const me = await fetchUserInfo().catch(() => null);
+      if (me) setUser(me);
+      setEditing(false);
+    } catch (e: any) {
+      Alert.alert("실패", e?.message || "닉네임 저장 실패");
+    }
+  };
+
+  const toggleAlarm = async (v: boolean) => {
+    setAlarmOn(v);
+    try {
+      await updateUserSettings(v, locationOn);
+    } catch {
+      /* 실패해도 UI 유지 */
+    }
+  };
+
+  const toggleLocation = async (v: boolean) => {
+    setLocationOn(v);
+    try {
+      await updateUserSettings(alarmOn, v);
+    } catch {
+      /* noop */
+    }
+  };
+
+  // 초기 확인 중이면 깜빡임 방지
+  if (!hydrated && !user) {
+    return <View style={{ flex: 1, backgroundColor: Theme.colors.white }} />;
+  }
 
   return (
     <ScrollView style={styles.screen}>
@@ -61,11 +141,11 @@ export default function TabMyPageScreen() {
               <Image source={{ uri: profileUri }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <User size={40} />
+                <UserIcon size={40} />
               </View>
             )}
             <Pressable onPress={pickImage} style={styles.avatarFab}>
-              <Settings size={16} />
+              <Cog size={16} />
             </Pressable>
           </Pressable>
 
@@ -79,9 +159,9 @@ export default function TabMyPageScreen() {
                   placeholder="닉네임"
                   autoFocus
                   returnKeyType="done"
-                  onSubmitEditing={() => setEditing(false)}
+                  onSubmitEditing={saveNickname}
                 />
-                <Pressable style={styles.saveBtn} onPress={() => setEditing(false)}>
+                <Pressable style={styles.saveBtn} onPress={saveNickname}>
                   <Text style={styles.saveBtnText}>저장</Text>
                 </Pressable>
               </View>
@@ -96,12 +176,12 @@ export default function TabMyPageScreen() {
           </View>
         </View>
 
-        {/* 찜 / 내가 쓴 리뷰 / 스탬프 */}
+        {/* 찜 / 리뷰 / 스탬프 */}
         <View style={styles.tripletRow}>
           <View style={styles.tripletCol}>
             <Link href="/favorite" asChild>
               <Pressable style={styles.tripletBtn} accessibilityRole="button">
-                <Heart size={Theme.iconSizes.lg} />
+                <Heart size={Theme.iconSizes.lg as any} />
                 <Text style={styles.tripletText}>찜</Text>
               </Pressable>
             </Link>
@@ -110,7 +190,7 @@ export default function TabMyPageScreen() {
           <View style={styles.tripletCol}>
             <Link href="/myreview" asChild>
               <Pressable style={styles.tripletBtn} accessibilityRole="button">
-                <Pencil size={Theme.iconSizes.lg} />
+                <Pencil size={Theme.iconSizes.lg as any} />
                 <Text style={styles.tripletText}>내가 쓴 리뷰</Text>
               </Pressable>
             </Link>
@@ -118,32 +198,49 @@ export default function TabMyPageScreen() {
 
           <View style={styles.tripletCol}>
             <Link href="/mystamp" asChild>
-            <Pressable style={styles.tripletBtn} accessibilityRole="button">
-              <Stamp size={Theme.iconSizes.lg} />
-              <Text style={styles.tripletText}>스탬프 리스트</Text>
-            </Pressable>
+              <Pressable style={styles.tripletBtn} accessibilityRole="button">
+                <Stamp size={Theme.iconSizes.lg as any} />
+                <Text style={styles.tripletText}>스탬프 리스트</Text>
+              </Pressable>
             </Link>
           </View>
         </View>
       </View>
+
       <View style={styles.separator} />
 
-      {/* 토글 섹션 */}
+      {/* 설정 토글 */}
       <View style={styles.section}>
         <View style={styles.row}>
           <Text style={styles.rowTitle}>알림 설정</Text>
-            <View style={styles.switchWrap}>
-              <Switch value={alarmOn} onValueChange={setAlarmOn} trackColor={{ false: Theme.colors.lightGray, true: Theme.colors.themeOrange }}
-            thumbColor={alarmOn ? '#FFFFFF' : '#FFFFFF'} />
-            </View>
+          <View style={styles.switchWrap}>
+            <Switch
+              value={alarmOn}
+              onValueChange={toggleAlarm}
+              trackColor={{
+                false: Theme.colors.lightGray as any,
+                true: Theme.colors.themeOrange as any,
+              }}
+              thumbColor={"#FFFFFF"}
+            />
+          </View>
         </View>
+
         <View style={styles.row}>
           <Text style={styles.rowTitle}>위치정보 사용</Text>
-            <View style={styles.switchWrap}>
-              <Switch value={locationOn} onValueChange={setLocationOn} trackColor={{ false: Theme.colors.lightGray, true: Theme.colors.themeOrange }}
-            thumbColor={alarmOn ? '#FFFFFF' : '#FFFFFF'}/>
-            </View>
+          <View style={styles.switchWrap}>
+            <Switch
+              value={locationOn}
+              onValueChange={toggleLocation}
+              trackColor={{
+                false: Theme.colors.lightGray as any,
+                true: Theme.colors.themeOrange as any,
+              }}
+              thumbColor={"#FFFFFF"}
+            />
+          </View>
         </View>
+
         <View style={styles.row}>
           <Text style={styles.rowTitle}>공지사항</Text>
           <Pressable style={styles.navRow}>
@@ -159,7 +256,7 @@ export default function TabMyPageScreen() {
       </View>
 
       <View style={styles.logoutWrap}>
-        <Pressable onPress={() => Alert.alert('로그아웃', '아직 개발중~')}>
+        <Pressable onPress={() => router.push("/login") /* TODO: 실제 logout API */}>
           <Text style={styles.logoutText}>로그아웃</Text>
         </Pressable>
       </View>
@@ -168,21 +265,21 @@ export default function TabMyPageScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { 
-    flex: 1, 
+  screen: {
+    flex: 1,
     backgroundColor: Theme.colors.white,
   },
 
-  profileCard: { 
+  profileCard: {
     padding: Theme.spacing.md,
   },
-  profileRow: { 
-    flexDirection: 'row',
-     alignItems: 'center', 
-     gap: 16 
+  profileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
   },
-  avatarWrap: { 
-    position: 'relative' 
+  avatarWrap: {
+    position: "relative",
   },
   avatar: {
     width: AVATAR,
@@ -192,40 +289,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
   },
-  avatarPlaceholder: { 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  avatarPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarFab: {
-    position: 'absolute',
+    position: "absolute",
     right: -2,
     bottom: -2,
     width: Theme.iconSizes.md,
     height: Theme.iconSizes.md,
     borderRadius: 14,
     backgroundColor: Theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
   },
-  nameWrap: { 
-    flex: 1, 
-    justifyContent: 'center',
+  nameWrap: {
+    flex: 1,
+    justifyContent: "center",
   },
-  nickRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8 
+  nickRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  nickname: { 
-    fontSize: Theme.fontSizes.lg, 
-    fontWeight: Theme.fontWeights.semibold,
+  nickname: {
+    fontSize: Theme.fontSizes.lg,
+    fontWeight: Theme.fontWeights.semibold as any,
   },
-  editRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8 
+  editRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   nickInput: {
     flex: 1,
@@ -243,71 +340,78 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  saveBtnText: { 
+  saveBtnText: {
     fontSize: Theme.fontSizes.base,
-    fontWeight: Theme.fontWeights.semibold,
+    fontWeight: Theme.fontWeights.semibold as any,
   },
 
   tripletRow: {
     marginVertical: Theme.spacing.md,
-    flexDirection: 'row',
-    width: '100%',
-    alignSelf: 'stretch',
+    flexDirection: "row",
+    width: "100%",
+    alignSelf: "stretch",
   },
   tripletCol: {
-    flex: 1,     
-    alignItems: 'center', 
-    justifyContent: 'center',
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   tripletBtn: {
-    alignItems: 'center',
+    alignItems: "center",
     padding: Theme.spacing.md,
   },
-  tripletText: { 
+  tripletText: {
     fontSize: Theme.fontSizes.base,
     color: Theme.colors.darkGray,
-    fontWeight: Theme.fontWeights.medium,
+    fontWeight: Theme.fontWeights.medium as any,
     marginTop: Theme.spacing.sm,
   },
+
   separator: {
-      borderBottomWidth: 1,
-      borderBottomColor: Theme.colors.lightGray,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.lightGray,
   },
+
   section: {
     paddingHorizontal: Theme.spacing.md,
     paddingTop: Theme.spacing.md,
   },
   row: {
     marginVertical: Theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  rowTitle: { 
+  rowTitle: {
     fontSize: Theme.fontSizes.base,
-    fontWeight: Theme.fontWeights.medium,
-    color: Theme.colors.black, 
+    fontWeight: Theme.fontWeights.medium as any,
+    color: Theme.colors.black,
   },
 
   navRow: {
     marginBottom: Theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
- switchWrap: {
-   transform: [{ scaleX: Platform.OS === 'ios' ? 0.7 : 0.88 },
-               { scaleY: Platform.OS === 'ios' ? 0.7 : 0.88 }],
-   marginRight: Platform.OS === 'ios' ? 0 : -4,
- },
-  logoutWrap: { 
-    alignItems: 'center' 
+
+  switchWrap: {
+    transform: [
+      { scaleX: Platform.OS === "ios" ? 0.7 : 0.88 },
+      { scaleY: Platform.OS === "ios" ? 0.7 : 0.88 },
+    ],
+    marginRight: Platform.OS === "ios" ? 0 : -4,
   },
-  logoutText: { 
+
+  logoutWrap: {
+    alignItems: "center",
+    paddingVertical: Theme.spacing.lg,
+  },
+  logoutText: {
     color: Theme.colors.gray,
-    fontSize: Theme.fontSizes.sm, 
+    fontSize: Theme.fontSizes.sm,
   },
 });
