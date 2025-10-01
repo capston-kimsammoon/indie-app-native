@@ -5,8 +5,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Image,
-  Pressable,
   ActivityIndicator,
   Dimensions,
   Alert,
@@ -14,17 +12,15 @@ import {
 import { useRoute, useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import Theme from "@/constants/Theme";
-import IcHeartFilled from "@/assets/icons/ic-heart-filled.svg";
-import IcHeartOutline from "@/assets/icons/ic-heart-outline.svg";
-import IcClose from "@/assets/icons/ic-close.svg";
-import { fetchVenueReviewList, likeReview, unlikeReview, deleteVenueReview } from "@/api/ReviewApi";
+import {
+  fetchVenueReviewList,
+  likeReview,
+  unlikeReview,
+  deleteVenueReview,
+} from "@/api/ReviewApi";
 import { ReviewItem } from "@/types/review";
-import Images from "@/components/common/Images";
-import { TEST_TOKEN } from "@env";
-import { getUserIdFromToken } from "@/utils/auth";
 import ReviewCard from "@/components/cards/ReviewCard";
-
-const myUserId = getUserIdFromToken(TEST_TOKEN);
+import { useAuthStore } from "@/src/state/authStore";
 
 type RouteParams = { id: string };
 
@@ -33,23 +29,43 @@ export default function VenueReviewsPage() {
   const router = useRouter();
   const { id } = route.params as RouteParams;
 
+  // 로그인 유저 ID (없으면 null)
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null);
+
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
-  const IcHeartSize = Theme.iconSizes.sm;
 
-  // --- 리뷰 불러오기 ---
+  // ── 리뷰 불러오기 ───────────────────────────────────────────────
   const loadReviews = async () => {
     setLoading(true);
     try {
-      const data = await fetchVenueReviewList(Number(id), { page: 1, size: 50 }, TEST_TOKEN);
+      const data = await fetchVenueReviewList(Number(id), {
+        page: 1,
+        size: 50,
+        currentUserId, // 서버가 쓰든 안 쓰든 옵션으로 전달
+      });
 
-      const items = data.items.map(r => ({
-        ...r,
-        author: r.user?.nickname ?? "익명",
-        profile_url: r.user?.profile_url ?? "",
+      // 서버 응답을 우리 ReviewItem 형태로 안전 매핑
+      const items: ReviewItem[] = (data.items || []).map((r: any) => ({
+        id: r.id,
+        author: r.user?.nickname ?? r.author ?? "익명",
+        content: r.content ?? "",
+        created_at: r.created_at ?? "",
+        profile_url: (r.user?.profile_url ?? r.profile_url ?? "").trim(),
+        like_count:
+          typeof r.like_count === "number"
+            ? r.like_count
+            : Number(r.likeCount ?? 0),
+        is_liked: !!(r.is_liked ?? r.isLiked),
         images: r.images ?? [],
-        isMine: r.user?.id === myUserId, // 내가 쓴 리뷰 판단
+        isMine:
+          typeof r.is_mine === "boolean"
+            ? r.is_mine
+            : currentUserId != null
+            ? r.user?.id === currentUserId
+            : false,
+        venue: r.venue ?? null,
       }));
 
       setReviews(items);
@@ -61,36 +77,51 @@ export default function VenueReviewsPage() {
     }
   };
 
-  useFocusEffect(useCallback(() => {
-    loadReviews();
-  }, [id]));
+  useFocusEffect(
+    useCallback(() => {
+      loadReviews();
+    }, [id, currentUserId])
+  );
 
   const goWriteReview = () => router.push(`/venue/${id}/review/write`);
 
-  // --- 좋아요 토글 ---
+  // ── 좋아요 토글 (snake_case) ───────────────────────────────────
   const handleLikeToggle = async (review: ReviewItem) => {
-    setReviews(prev =>
-      prev.map(r =>
+    // optimistic UI
+    setReviews((prev) =>
+      prev.map((r) =>
         r.id === review.id
-          ? { ...r, is_liked: !r.is_liked, like_count: r.is_liked ? r.like_count - 1 : r.like_count + 1 }
+          ? {
+              ...r,
+              is_liked: !r.is_liked,
+              like_count:
+                (r.like_count ?? 0) + (r.is_liked ? -1 : 1),
+            }
           : r
       )
     );
 
     try {
-      if (review.is_liked) await unlikeReview(review.id, TEST_TOKEN);
-      else await likeReview(review.id, TEST_TOKEN);
+      if (review.is_liked) await unlikeReview(review.id);
+      else await likeReview(review.id);
     } catch (err) {
       console.error("좋아요 실패", err);
-      setReviews(prev =>
-        prev.map(r =>
-          r.id === review.id ? { ...r, is_liked: review.is_liked, like_count: review.like_count } : r
+      // rollback
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === review.id
+            ? {
+                ...r,
+                is_liked: review.is_liked,
+                like_count: review.like_count ?? 0,
+              }
+            : r
         )
       );
     }
   };
 
-  // --- 리뷰 삭제 ---
+  // ── 리뷰 삭제 ──────────────────────────────────────────────────
   const handleDeleteReview = async (review: ReviewItem) => {
     Alert.alert("리뷰 삭제", "정말 삭제하시겠습니까?", [
       { text: "취소", style: "cancel" },
@@ -99,9 +130,9 @@ export default function VenueReviewsPage() {
         style: "destructive",
         onPress: async () => {
           try {
-            await deleteVenueReview(review.id, TEST_TOKEN);
-            setReviews(prev => prev.filter(r => r.id !== review.id));
-            setTotal(prev => prev - 1);
+            await deleteVenueReview(review.id);
+            setReviews((prev) => prev.filter((r) => r.id !== review.id));
+            setTotal((prev) => Math.max(0, prev - 1));
           } catch (err: any) {
             console.error("리뷰 삭제 실패", err);
             Alert.alert("리뷰 삭제 실패", err.message || "");
@@ -115,13 +146,17 @@ export default function VenueReviewsPage() {
     <View style={{ flex: 1, backgroundColor: Theme.colors.white }}>
       <View style={styles.header}>
         <Text style={styles.totalText}>총 {total}개</Text>
-        <Pressable style={styles.writeButton} onPress={goWriteReview}>
-          <Text style={styles.writeButtonText}>리뷰 작성</Text>
-        </Pressable>
+        <Text onPress={goWriteReview} style={styles.writeButtonText}>
+          리뷰 작성
+        </Text>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={Theme.colors.themeOrange} style={{ marginTop: 50 }} />
+        <ActivityIndicator
+          size="large"
+          color={Theme.colors.themeOrange}
+          style={{ marginTop: 50 }}
+        />
       ) : (
         <FlatList
           data={reviews}
@@ -130,12 +165,12 @@ export default function VenueReviewsPage() {
               item={item}
               onDelete={handleDeleteReview}
               onToggleLike={handleLikeToggle}
-              showLike={true} // 좋아요 버튼 표시
+              showLike={true}
               showVenueInfo={false}
             />
           )}
           keyExtractor={(item) => item.id.toString()}
-          style={{paddingHorizontal: Theme.spacing.md}}
+          style={{ paddingHorizontal: Theme.spacing.md }}
         />
       )}
     </View>
@@ -145,8 +180,25 @@ export default function VenueReviewsPage() {
 const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: Theme.spacing.md, backgroundColor: Theme.colors.white, marginBottom: Theme.spacing.sm },
-  totalText: { fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.medium },
-  writeButton: { backgroundColor: Theme.colors.themeOrange, borderRadius: 10, padding: Theme.spacing.sm },
-  writeButtonText: { color: Theme.colors.white, fontWeight: Theme.fontWeights.medium },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Theme.spacing.md,
+    backgroundColor: Theme.colors.white,
+    marginBottom: Theme.spacing.sm,
+  },
+  totalText: {
+    fontSize: Theme.fontSizes.base,
+    fontWeight: Theme.fontWeights.medium as any,
+  },
+  writeButtonText: {
+    backgroundColor: Theme.colors.themeOrange,
+    color: Theme.colors.white,
+    borderRadius: 10,
+    overflow: "hidden",
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.xs,
+    fontWeight: Theme.fontWeights.medium as any,
+  },
 });
