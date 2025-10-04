@@ -1,4 +1,7 @@
 // utils/auth.ts
+import { useAuthStore } from "@/src/state/authStore";
+import { Alert } from "react-native";
+
 export const getUserIdFromToken = (token: string): number | null => {
   try {
     const payload = token.split(".")[1];
@@ -12,3 +15,11 @@ export const getUserIdFromToken = (token: string): number | null => {
   }
 };
 
+export function requireLogin(action: () => void) {
+  const { user } = useAuthStore.getState();
+  if (!user) {
+    Alert.alert("로그인 필요", "로그인 후 이용할 수 있어요.");
+    return;
+  }
+  action();
+}

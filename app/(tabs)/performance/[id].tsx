@@ -9,7 +9,6 @@ import {
     Pressable,
     FlatList,
     Linking,
-    Alert,
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -22,6 +21,7 @@ import { enableAlert, disableAlert, TYPE_PERFORMANCE as TYPE_ALERT_PERF } from "
 import { PerformanceDetailResponse } from "@/types/performance";
 import Theme from "@/constants/Theme";
 import { formatDateTime, calcDDay } from "@/utils/dateUtils";
+import { requireLogin } from "@/utils/auth";
 
 import IcHeartOutline from "@/assets/icons/ic-heart-outline.svg";
 import IcHeartFilled from "@/assets/icons/ic-heart-filled.svg";
@@ -54,6 +54,7 @@ export default function PerformanceDetailPage() {
                 setLiked(data.isLiked);
                 setIsNotified(data.isAlarmed);
                 setLikeCount(data.likeCount || 0);
+                console.log("data: ", data);
             } catch (err) {
                 console.error("공연 상세 조회 실패:", err);
             }
@@ -64,38 +65,42 @@ export default function PerformanceDetailPage() {
 
     // 찜 ON/OFF
     const handleLikePress = async () => {
-        if (!performance) return;
+        requireLogin(async () => {
+            if (!performance) return;
 
-        try {
-            if (!liked) {
-                await like(TYPE_LIKE_PERF, performance.id);
-                setLiked(true);
-                setLikeCount(likeCount + 1);
-            } else {
-                await unlike(TYPE_LIKE_PERF, performance.id);
-                setLiked(false);
-                setLikeCount(likeCount - 1);
+            try {
+                if (!liked) {
+                    await like(TYPE_LIKE_PERF, performance.id);
+                    setLiked(true);
+                    setLikeCount(likeCount + 1);
+                } else {
+                    await unlike(TYPE_LIKE_PERF, performance.id);
+                    setLiked(false);
+                    setLikeCount(likeCount - 1);
+                }
+            } catch (err) {
+                console.error('찜 처리 실패:', err);
             }
-        } catch (err) {
-            console.error('찜 처리 실패:', err);
-        }
+        });
     };
 
     // 예매 알림 버튼
     const handleNotifyPress = async () => {
-        if (!performance) return;
+        requireLogin(async () => {
+            if (!performance) return;
 
-        try {
-            if (!isNotified) {
-                await enableAlert(TYPE_ALERT_PERF, performance.id);
-                setIsNotified(true);
-            } else {
-                await disableAlert(TYPE_ALERT_PERF, performance.id);
-                setIsNotified(false);
+            try {
+                if (!isNotified) {
+                    await enableAlert(TYPE_ALERT_PERF, performance.id);
+                    setIsNotified(true);
+                } else {
+                    await disableAlert(TYPE_ALERT_PERF, performance.id);
+                    setIsNotified(false);
+                }
+            } catch (err) {
+                console.error('알림 처리 실패:', err);
             }
-        } catch (err) {
-            console.error('알림 처리 실패:', err);
-        }
+        });
     };
 
     if (!performance) return <Text>Loading...</Text>;
@@ -107,7 +112,11 @@ export default function PerformanceDetailPage() {
                 <View style={styles.topSection}>
                     <View style={styles.posterWrapper}>
                         <Image
-                            source={{ uri: performance.posterUrl || "https://via.placeholder.com/90x120" }}
+                            source={
+                                performance.posterUrl
+                                ? { uri: performance.posterUrl }
+                                : require('@/assets/images/modie-sample.png')
+                            }
                             style={styles.poster}
                         />
                         {/* 찜 버튼 */}
@@ -115,7 +124,7 @@ export default function PerformanceDetailPage() {
                             {liked ? (
                                 <IcHeartFilled width={iconHeartSize} height={iconHeartSize} />
                             ) : (
-                                <IcHeartOutline width={iconHeartSize} height={iconHeartSize} />
+                                <IcHeartOutline width={iconHeartSize} height={iconHeartSize} stroke={Theme.colors.lightGray} />
                             )}
                             <Text style={styles.likeCount}>{likeCount.toLocaleString()}</Text>
                         </Pressable>
@@ -124,7 +133,7 @@ export default function PerformanceDetailPage() {
                     {/* 공연 텍스트 정보 */}
                     <View style={styles.topInfo}>
                         <Text style={styles.dday}>{performance.date && calcDDay(new Date(performance.date))}</Text>
-                        <Text style={styles.title}>{performance.title}</Text>
+                        <Text style={styles.title} numberOfLines={2}>{performance.title}</Text>
                         {/* 예매 알림 버튼 */}
                         <Pressable style={styles.notifyButton} onPress={handleNotifyPress}>
                             <Text style={styles.notifyText}>예매알림</Text>
@@ -143,7 +152,10 @@ export default function PerformanceDetailPage() {
                 <View style={styles.row}>
                     <Text style={styles.label}>공연일시</Text>
                     <Text style={styles.value}>
-                        {formatDateTime(new Date(performance.date))}
+                        {formatDateTime(
+                            new Date(performance.date),
+                            performance.date || undefined
+                        )}
                     </Text>
                 </View>
 
@@ -153,7 +165,7 @@ export default function PerformanceDetailPage() {
                     <View style={styles.valueWithIcon}>
                         <Text style={styles.value}>{performance.venue}</Text>
                         <Pressable onPress={() => router.push(`/venue/${performance.venueId}`)}>
-                            <IcChevronRight width={iconChevronSize} height={iconChevronSize} />
+                            <IcChevronRight width={iconChevronSize} height={iconChevronSize} fill={Theme.colors.gray} />
                         </Pressable>
                     </View>
                 </View>
@@ -161,32 +173,39 @@ export default function PerformanceDetailPage() {
                 {/* 출연진 */}
                 <View style={styles.rowColumn}>
                     <Text style={styles.label}>출연진</Text>
-                    <FlatList
-                        data={performance.artists}
-                        horizontal
-                        keyExtractor={(item) => item.id.toString()}
-                        showsHorizontalScrollIndicator={false}
-                        renderItem={({ item }) => (
-                            <Pressable
-                                style={styles.artist}
-                                onPress={() => router.push(`/artist/${item.id}`)}
-                            >
-                                <Image
-                                    source={{ uri: item.image_url || "https://via.placeholder.com/60" }}
-                                    style={styles.profile}
-                                />
-                                <Text style={styles.artistName}>{item.name}</Text>
-                            </Pressable>
-                        )}
-                    />
+                    {performance.artists?.length ? (
+                        <FlatList
+                            data={performance.artists}
+                            horizontal
+                            keyExtractor={(item) => item.id.toString()}
+                            showsHorizontalScrollIndicator={false}
+                            renderItem={({ item }) => (
+                                <Pressable
+                                    style={styles.artist}
+                                    onPress={() => router.push(`/artist/${item.id}`)}
+                                >
+                                    <Image
+                                        source={
+                                            item.image_url ? { uri: item.image_url }
+                                            : require('@/assets/images/modie-sample.png') 
+                                        }
+                                        style={styles.profile}
+                                    />
+                                    <Text style={styles.artistName}>{item.name}</Text>
+                                </Pressable>
+                            )}
+                        />
+                    ) : (
+                        <Text style={styles.noArtistText}>
+                            출연진 정보가 없습니다.
+                        </Text>
+                    )}
                 </View>
 
                 {/* 티켓가격 */}
                 <View style={styles.row}>
                     <Text style={styles.label}>티켓가격</Text>
-                    <Text style={styles.value}>
-                        {performance.price ? Number(performance.price.replace(/[^0-9]/g, '')).toLocaleString() + "원" : "-"}
-                    </Text>
+                    <Text style={styles.value}>{performance.price}</Text>
                 </View>
 
                 {/* 티켓오픈 */}
@@ -233,7 +252,8 @@ const styles = StyleSheet.create({
     poster: {
         width: 120,
         aspectRatio: 3 / 4,
-        borderRadius: 8
+        borderRadius: 8,
+        borderWidth: 1, borderColor: Theme.colors.lightGray,
     },
     likesBox: {
         flexDirection: "row",
@@ -268,7 +288,8 @@ const styles = StyleSheet.create({
     valueWithIcon: { flex: 1, flexDirection: "row", alignItems: "center" },
     value: { fontSize: Theme.fontSizes.base, color: Theme.colors.black, marginRight: Theme.spacing.xs },
     artist: { alignItems: "center", marginRight: Theme.spacing.md, marginVertical: Theme.spacing.md },
-    profile: { width: 60, height: 60, borderRadius: 30, margin: Theme.spacing.sm },
+    profile: { width: 60, height: 60, borderRadius: 30, margin: Theme.spacing.sm, borderWidth: 1, borderColor: Theme.colors.lightGray },
     artistName: { fontSize: Theme.fontSizes.base, color: Theme.colors.darkGray, textAlign: "center" },
     link: { fontSize: Theme.fontSizes.base, textDecorationLine: "underline" },
+    noArtistText: {fontSize: Theme.fontSizes.base, color: Theme.colors.gray, },
 });

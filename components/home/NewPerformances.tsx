@@ -50,7 +50,7 @@ export default function NewPerformances() {
           <PerformanceCard
             type="new"
             title={item.title}
-            date={getDateFromDateString(item.date)}
+            date={item.date}
             posterUrl={item.posterUrl || item.thumbnail} // thumbnail도 대응
             onPress={() => router.push(`/performance/${item.id}`)}
           />
@@ -67,6 +67,7 @@ export default function NewPerformances() {
 const styles = StyleSheet.create({
   section: {
     padding: Theme.spacing.md,
+    alignItems: "center",
   },
   title: {
     fontSize: Theme.fontSizes.lg,

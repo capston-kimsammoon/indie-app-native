@@ -71,7 +71,8 @@ export default function VenueListPage() {
         onEndReached={() => {
           if (!loading && page <= totalPages) loadVenues();
         }}
-        ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={ loading ? <ActivityIndicator style={{ margin: Theme.spacing.sm }} /> : null }
       />
 
       <RegionFilterModal

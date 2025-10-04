@@ -1,6 +1,7 @@
 // app/(tabs)/index.tsx
-import { ScrollView, StyleSheet, View, Text } from "react-native";
+import { ScrollView, StyleSheet, View, Text, Pressable } from "react-native";
 import Theme from "@/constants/Theme";
+import { useRouter } from "expo-router";
 
 // 홈 화면에 쓸 컴포넌트들
 import TodayPerformances from "@/components/home/TodayPerformances";
@@ -12,6 +13,7 @@ import PickSection from "@/components/home/CuratedPick";
 import MoodPerformances from "@/components/home/MoodPerformances";
 
 export default function TabHomeScreen() {
+  const router = useRouter();
   return (
     <ScrollView
       style={styles.container}
@@ -42,11 +44,18 @@ export default function TabHomeScreen() {
       {/* 맨 아래 약관 정보 */}
       {/* 추후 링크 첨부 */}
       <View style={styles.footer}>
-        <Text style={styles.footerText}>이용약관</Text>
-        <Text style={styles.footerText}>위치기반서비스이용약관</Text>
-        <Text style={styles.footerText}>개인정보처리방침</Text>
+        <Pressable onPress={() => router.push('/terms/service')}>
+          <Text style={styles.footerText}>이용약관</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/terms/location')}>
+          <Text style={styles.footerText}>위치기반서비스이용약관</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/terms/privacy')}>
+          <Text style={styles.footerText}>개인정보처리방침</Text>
+        </Pressable>
         <Text style={styles.footerText}>© indie corp</Text>
       </View>
+
     </ScrollView>
   );
 }

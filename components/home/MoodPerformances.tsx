@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
 import { useRouter } from "expo-router";
-import { fetchMoods, fetchPerformancesByMood } from "@/api/MoodApi";
+import { fetchPerformancesByMood } from "@/api/MoodApi";
 
 // 항상 표시할 무드 버튼
 const MOODS = ["신나는", "차분한", "따뜻한", "짜릿한"] as const;
@@ -91,7 +91,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: Theme.spacing.md,
   },
-  buttonRow: { flexDirection: "row", paddingVertical: Theme.spacing.md },
+  buttonRow: { 
+    flexDirection: "row", 
+    paddingVertical: Theme.spacing.md, 
+    justifyContent: "center",
+  },
   moodButton: {
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.sm,

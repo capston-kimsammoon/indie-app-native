@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   FlatList,
-  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,6 +18,8 @@ import ArtistCard from "@/components/cards/ArtistCard";
 
 import fetchSearchResults from "@/api/SearchApi";
 import { like, unlike } from "@/api/LikeApi";
+import { requireLogin } from "@/utils/auth";
+
 import { PerformanceSearchItem, VenueSearchItem, ArtistSearchItem } from "@/types/search";
 import { getDateFromDateString, getWeekDayFromDateString } from "@/utils/dateUtils";
 
@@ -98,15 +99,33 @@ export default function SearchPage() {
           }))
         );
       } else {
-        const res = await fetchSearchResults.artist(q);
-        setFilteredArtists(
-          res.artists.map(a => ({
-            id: a.id.toString(),
-            name: a.name,
-            profileUrl: a.profile_url,
-            liked: a.isLiked, // ✅ 백엔드 값 그대로 사용
-          }))
-        );
+        try {
+          const res = await fetchSearchResults.artist(q);
+          setFilteredArtists(
+            res.artists.map(a => ({
+              id: a.id.toString(),
+              name: a.name,
+              profileUrl: a.profile_url,
+              liked: a.isLiked ?? false, 
+            }))
+          );
+        } catch (err: any) {
+          // 401 무시하고 liked: false
+          if (err.response?.status === 401) {
+            console.warn("비로그인 상태 검색: 아티스트 liked는 false 처리");
+            const res = await fetchSearchResults.artist(q, { ignoreAuth: true });
+            setFilteredArtists(
+              res.artists.map(a => ({
+                id: a.id.toString(),
+                name: a.name,
+                profileUrl: a.profile_url,
+                liked: false,
+              }))
+            );
+          } else {
+            throw err;
+          }
+        }
       }
     } catch (err) {
       console.warn("검색 실패", err);
@@ -303,23 +322,23 @@ export default function SearchPage() {
                       profileUrl={item.data.profileUrl}
                       liked={item.data.liked}
                       onPress={() => router.push(`/artist/${item.data.id}`)}
-                      onToggleLike={async () => {
-                        try {
-                          if (item.data.liked) {
-                            await unlike("artist", Number(item.data.id));
-                          } else {
-                            await like("artist", Number(item.data.id));
-                          }
-                          setFilteredArtists(prev =>
-                            prev.map(a => a.id === item.data.id ? { ...a, liked: !a.liked } : a)
-                          );
-                        } catch (err: any) {
-                          if (err.response?.status === 401) {
-                            Alert.alert("로그인이 필요합니다.");
-                          } else {
+                      onToggleLike={() => {
+                        requireLogin(async () => {
+                          try {
+                            if (item.data.liked) {
+                              await unlike("artist", Number(item.data.id));
+                            } else {
+                              await like("artist", Number(item.data.id));
+                            }
+                            setFilteredArtists(prev =>
+                              prev.map(a =>
+                                a.id === item.data.id ? { ...a, liked: !a.liked } : a
+                              )
+                            );
+                          } catch (err: any) {
                             console.warn("하트 토글 실패", err);
                           }
-                        }
+                        });
                       }}
                     />
                     {!isLastInSection && <View style={styles.separator} />}
@@ -342,6 +361,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: Theme.spacing.md,
+    marginTop: Theme.spacing.md,
     borderBottomWidth: 2,
     borderColor: Theme.colors.themeOrange,
   },

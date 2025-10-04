@@ -1,7 +1,7 @@
+// app/api/CalendarApi.ts
 import http from './http';
 import { safeArray } from "@/utils/safeArray";
-import { CalendarSummaryResponse } from '@/types/calendar';
-import { PerformancesByDateResponse } from "@/types/calendar";
+import { CalendarSummaryResponse, PerformancesByDateResponse } from "@/types/calendar";
 
 export const fetchCalendarSummary = async (
   year: number,
@@ -28,21 +28,15 @@ export const fetchCalendarSummary = async (
 };
 
 export const fetchPerformancesByDate = async (
-  date: string
+  date: string,
+  regions?: string[]
 ): Promise<PerformancesByDateResponse> => {
   try {
     const { data } = await http.get<PerformancesByDateResponse>(
       "/calendar/performance/by-date",
-      { params: { date } }
+      { params: { date, region: regions } }
     );
-
-    return {
-      ...data,
-      performances: safeArray(data.performances).map(p => ({
-        ...p,
-        region: p.region ?? "전체",   // region 없으면 "전체"로 fallback
-      })),
-    };
+    return data;
   } catch (error) {
     console.error("날짜별 공연 조회 실패:", error);
     throw error;

@@ -1,46 +1,72 @@
-// api/http.ts
-import axios from 'axios';
-import config from './config';
-import { TEST_TOKEN } from '@env';
+// app/api/http.ts
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import config from "./config";
+import Constants from "expo-constants";
+import { Platform } from "react-native";
 
+export const baseURL = (() => {
+  const extra = (Constants?.expoConfig as any)?.extra || {};
+  return (
+    config?.baseUrl ||
+    process.env.EXPO_PUBLIC_API_BASE_URL ||
+    extra.EXPO_PUBLIC_API_BASE_URL ||
+    (Platform.OS === "ios" ? "http://192.168.45.86:8000" :
+    Platform.OS === "android" ? "http://192.168.45.86:8000" :
+    "http://192.168.45.86:8000")
+  );
+})();
+
+// axios 인스턴스
 const http = axios.create({
-  baseURL: config.baseUrl,
-  timeout: config.timeout,
-  headers: {
-    'Content-Type': 'application/json',
-    Cookie: `access_token=${TEST_TOKEN};`, // 쿠키로 테스트용 JWT 전송
-    Authorization: `Bearer ${TEST_TOKEN}`, // 헤더로도 보낼 수 있음
-  },
-  withCredentials: true, // 쿠키 전송
+  baseURL,
+  timeout: config?.timeout ?? 15000,
+  withCredentials: Platform.OS === "web",
 });
 
-// 요청 인터셉터: 필요하면 토큰 등 추가
-http.interceptors.request.use(
-  (request) => {
-    // 예: 토큰 자동 첨부
-    // const token = getTokenFromStorage();
-    // if (token) request.headers.Authorization = `Bearer ${token}`;
+// 토큰 상태 관리
+let ACCESS_TOKEN: string | null = null;
 
-    // 임시 개발용 토큰
-    if (TEST_TOKEN) {
-      request.headers.Authorization = `Bearer ${TEST_TOKEN}`;
+export function setAccessToken(token: string | null) {
+  ACCESS_TOKEN = token;
+
+  if (ACCESS_TOKEN) {
+    http.defaults.headers.common.Authorization = `Bearer ${ACCESS_TOKEN}`;
+    if (Platform.OS !== "web") {
+      (http.defaults.headers.common as any).Cookie = `access_token=${ACCESS_TOKEN}`;
     }
+  } else {
+    delete http.defaults.headers.common.Authorization;
+    delete (http.defaults.headers.common as any).Cookie;
+  }
+}
 
-    // 필요하면 /auth/ 요청 처리
-    const url = typeof request.url === 'string' ? request.url : '';
-    if (url.startsWith('/auth/')) request.baseURL = config.baseUrl;
+export const getAccessToken = () => ACCESS_TOKEN;
+export const clearAccessToken = () => setAccessToken(null);
 
-    return request;
-  },
-  (error) => Promise.reject(error)
-);
+// 요청 인터셉터
+http.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
+  cfg.headers = { ...(cfg.headers || {}), "X-Client": "rn" };
+  console.log("HTTP REQ headers:", cfg.headers);
+  
+  if (ACCESS_TOKEN) {
+    cfg.headers.Authorization = `Bearer ${ACCESS_TOKEN}`;
+    if (Platform.OS !== "web") {
+      cfg.headers.Cookie = `access_token=${ACCESS_TOKEN}`;
+    }
+  }
 
-// 응답 인터셉터: 공통 에러 처리
+  return cfg;
+});
+
+// 응답 인터셉터
 http.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('HTTP Error:', error.response?.data || error.message);
-    return Promise.reject(error);
+  (res) => res,
+  (err: AxiosError<any>) => {
+    const status = err.response?.status;
+    const method = (err.config?.method || "GET").toUpperCase();
+    const url = err.config?.url || "(unknown)";
+    console.error(`[HTTP ${status ?? "ERR"}] ${method} ${url}`, err.response?.data ?? err.message);
+    return Promise.reject(err);
   }
 );
 

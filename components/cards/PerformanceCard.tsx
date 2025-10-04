@@ -1,13 +1,9 @@
 // components/cards/PerformanceCard.tsx
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, Image, StyleSheet, TouchableOpacity, Pressable } from "react-native";
 import Theme from "@/constants/Theme";
-
-import { formatDate, getDateFromDateString } from '@/utils/dateUtils';
 
 import IcHeartOutline from "@/assets/icons/ic-heart-outline.svg";
 import IcHeartFilled from "@/assets/icons/ic-heart-filled.svg";
-import IcStampOutline from "@/assets/icons/ic-stamp-outline.svg";
-import IcStampFilled from "@/assets/icons/ic-stamp-filled.svg";
 
 type PerformanceCardProps = {
   title: string;
@@ -28,12 +24,12 @@ type PerformanceCardProps = {
     | "list"
     | "venuePast"
     | "wish"
-    | "stamp"
     | "history"
     | "calendar";
   showHeart?: boolean;
-  showStamp?: boolean;
+  liked?: boolean;
   onPress?: () => void;
+  onToggleLike: () => void;
 };
 
 export default function PerformanceCard({
@@ -43,12 +39,11 @@ export default function PerformanceCard({
   ticketOpenDate,
   ticketOpenTime,
   posterUrl,
-  content,
-  userName,
   type = "popular",
   showHeart = false,
-  showStamp = false,
+  liked,
   onPress,
+  onToggleLike,
 }: PerformanceCardProps) {
   const isHorizontal = type === "today" || type === "venuePast";
   const isUpcomingTicket = type === "upcomingTicket";
@@ -69,7 +64,7 @@ export default function PerformanceCard({
       ]}
     >
       <Image
-        source={{uri: posterUrl}}
+        source={ posterUrl ? {uri: posterUrl} : require('@/assets/images/modie-sample.png') }
         style={[
           styles.poster,
           isHorizontal && styles.posterHorizontal,
@@ -87,6 +82,7 @@ export default function PerformanceCard({
           isVertical && styles.infoVertical,
           isUpcomingTicket && styles.infoUpcomingTicket,
           isList && styles.infoList,
+          showHeart && styles.infoWithHeart,
         ]}
       >
         {isUpcomingTicket ? (
@@ -123,7 +119,7 @@ export default function PerformanceCard({
         ) : (
           <>
             {title && (
-              <Text style={[styles.title, isList && styles.titleList]} numberOfLines={2}>
+              <Text style={[styles.title, isList && styles.titleList]} numberOfLines={1}>
                 {title}
               </Text>
             )}
@@ -142,17 +138,13 @@ export default function PerformanceCard({
       </View>
 
       {/* 하트 버튼 */}
-      {showHeart && (
-        <TouchableOpacity style={styles.rightButton}>
-          <IcHeartOutline width={24} height={24} />
-        </TouchableOpacity>
-      )}
-
-      {/* 스탬프 버튼 */}
-      {showStamp && (
-        <TouchableOpacity style={styles.rightButton}>
-          <IcStampOutline width={24} height={24} />
-        </TouchableOpacity>
+      {showHeart && onToggleLike && (
+        <Pressable style={[styles.rightButton, styles.heartButton]} onPress={onToggleLike}>
+          {liked ? 
+          <IcHeartFilled width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} /> 
+          : <IcHeartOutline width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} stroke={Theme.colors.lightGray} />
+          }
+        </Pressable>
       )}
     </TouchableOpacity>
   );
@@ -195,6 +187,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     width: 80,
     height: 100,
+    borderWidth: 1,
+    borderColor: Theme.colors.lightGray,
   },
   posterHorizontal: {
     width: 100,
@@ -205,7 +199,7 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4,
     height: undefined,
     borderRadius: 8,
-    marginBottom: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
   },
   posterUpcoming: {
     height: "100%",
@@ -223,6 +217,9 @@ const styles = StyleSheet.create({
   info: {
     justifyContent: "center",
   },
+  infoWithHeart: {
+    paddingRight: 40,
+  },
   infoVertical: {
     flexDirection: "column",
     marginLeft: 0,
@@ -239,7 +236,7 @@ const styles = StyleSheet.create({
   titleList: {
     fontSize: Theme.fontSizes.lg,
     fontWeight: Theme.fontWeights.semibold,
-    marginBottom: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
   },
   venueList: {
     fontSize: Theme.fontSizes.base,
@@ -322,7 +319,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-
+  heartButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.lightGray,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   rightButton: {
     position: "absolute",
     right: Theme.spacing.sm,

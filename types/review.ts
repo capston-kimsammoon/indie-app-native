@@ -1,3 +1,51 @@
+// ReviewTypes.ts
+export type ReviewImageWire = { image_url?: string | null } | string;
+
+export type ReviewUserWire = {
+  id?: number | null;
+  nickname?: string | null;
+  profile_url?: string | null;
+};
+
+export type ReviewCreateWire = {
+  content: string;
+  images?: string[];
+};
+
+export type ReviewItemWire = {
+  id: number;
+  content?: string | null;
+  created_at?: string | number | Date | null;
+  user?: ReviewUserWire | null;
+  images?: ReviewImageWire[] | null;
+  like_count?: number | null;
+  liked_by_me?: boolean | null;
+
+  venue?: { id?: number | null; name?: string | null; logo_url?: string | null } | null;
+  venue_id?: number | null;
+  venue_name?: string | null;
+  venue_logo_url?: string | null;
+};
+
+export type NormalizedReview = {
+  id: number;
+  text: string;
+  created_at: string;
+  author: string;
+  profile_url?: string;
+  images: string[];
+  like_count: number;
+  is_liked: boolean;
+  user_id?: number | null;
+  venue?: {
+    id?: number | null;
+    name?: string | null;
+    logo_url?: string | null;
+  } | null;
+  raw?: any;
+};
+
+// UI용 타입 (리뷰 페이지에서 바로 사용)
 export interface ReviewItem {
   id: number;
   author: string;
@@ -8,25 +56,9 @@ export interface ReviewItem {
   is_liked?: boolean;
   images?: string[];
   isMine?: boolean;
-  venue?: { 
+  venue?: {
     id: number;
     name: string;
+    logo_url?: string;
   } | null;
 }
-
-export interface ReviewListResponse {
-  total: number;
-  items: ReviewItem[];
-}
-
-// 리뷰 상세용 정규화 함수
-export const normalizeReviewDetail = (raw: any): ReviewItem => ({
-  id: raw.id,
-  author: raw.author || '익명',
-  content: raw.content || '',
-  created_at: raw.created_at || '',
-  profile_url: raw.profile_url ? raw.profile_url.trim().replace(/"/g, '') : '',
-  like_count: typeof raw.like_count === 'number' ? raw.like_count : 0,
-  is_liked: raw.is_liked ?? false,
-  images: raw.images ?? [],
-});

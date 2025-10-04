@@ -1,6 +1,5 @@
 import http from './http';
 import { safeArray } from "@/utils/safeArray";
-import { MagazineItem } from '@/types/magazine';
 import { Performance, PerformanceListResponse, PerformanceDetailResponse } from '@/types/performance';
 
 /** 공연 목록 조회 */

@@ -12,8 +12,8 @@ type VenueCardProps = {
 export default function VenueCard({ name, profileUrl, onPress }: VenueCardProps) {
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <Image source={{ uri: profileUrl }} style={styles.image} />
-      <Text style={styles.name}>{name}</Text>
+      <Image source={profileUrl ? { uri: profileUrl } : require('@/assets/images/modie-sample.png')} style={styles.image} />
+      <Text style={styles.name} numberOfLines={1}>{name}</Text>
     </Pressable>
   );
 }
@@ -30,6 +30,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     marginRight: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.lightGray,
    },
   name: {
     fontSize: Theme.fontSizes.lg,

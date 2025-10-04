@@ -2,7 +2,6 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import Theme from "@/constants/Theme";
-import PerformanceCard from "@/components/cards/PerformanceCard";
 import MagazineCard from "@/components/cards/MagazineCard";
 import { fetchMagazineList } from "@/api/MagazineApi";
 import { MagazineItem } from "@/types/magazine";

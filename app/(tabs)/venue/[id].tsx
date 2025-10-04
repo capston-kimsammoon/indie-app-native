@@ -25,10 +25,8 @@ import { getDateFromDateString } from "@/utils/dateUtils";
 
 import { fetchVenueDetail } from "@/api/VenueApi";
 import { fetchVenueReviewList } from "@/api/ReviewApi";
-import { VenueDetailResponse, VenueReviewItem } from "@/types/venue";
-import { Performance } from "@/types/performance";
-import { ReviewItem } from "@/types/review";
-import { TEST_TOKEN } from "@env";
+import { VenueDetailResponse } from "@/types/venue";
+import { ReviewItem, NormalizedReview } from "@/types/review";
 
 type RouteParams = { id: string };
 
@@ -38,7 +36,7 @@ export default function VenueDetailPage() {
     const { id } = route.params as RouteParams;
 
     const [venue, setVenue] = useState<VenueDetailResponse | null>(null);
-    const [reviews, setReviews] = useState<ReviewItem[]>([]);
+    const [reviews, setReviews] = useState<NormalizedReview[]>([]);
 
     useEffect(() => {
         const loadVenueData = async () => {
@@ -48,7 +46,7 @@ export default function VenueDetailPage() {
                 setVenue(venueData);
 
                 // 공연장 리뷰
-                const reviewData = await fetchVenueReviewList(Number(id), 1, TEST_TOKEN);
+                const reviewData = await fetchVenueReviewList(Number(id), { page: 1, size: 10 });
                 setReviews(reviewData.items);
             } catch (err) {
                 console.error("공연장 데이터 로드 실패:", err);
@@ -66,7 +64,7 @@ export default function VenueDetailPage() {
             <ScrollView style={styles.container}>
                 {/* 상단 공연장 정보 */}
                 <View style={styles.topSection}>
-                    <Image source={{ uri: venue.image_url }} style={styles.profile} />
+                    <Image source={venue.image_url ? { uri: venue.image_url } : require('@/assets/images/modie-sample.png')} style={styles.profile} />
                     <Text style={styles.venueName}>{venue.name}</Text>
                 </View>
 
@@ -193,13 +191,14 @@ export default function VenueDetailPage() {
                     {/* 리뷰 */}
                     <View style={styles.rowColumn}>
                         <Text style={styles.label}>리뷰</Text>
+
                         <FlatList
                             data={reviews.slice(0, 2)} // 최대 2개만 보여줌
                             renderItem={({ item }) => (
                                 <ReviewPrevCard
-                                    userProfile={item.user?.profile_url}
-                                    userName={item.user?.nickname || "익명"}
-                                    content={item.content}
+                                    userProfile={item.profile_url}
+                                    userName={item.author || "익명"}
+                                    content={item.text}
                                 />
                             )}
                             keyExtractor={(item) => item.id.toString()}
@@ -224,7 +223,7 @@ export default function VenueDetailPage() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Theme.colors.white },
     topSection: { flexDirection: "row", alignItems: "center", padding: Theme.spacing.md },
-    profile: { width: 90, height: 90, borderRadius: 45, marginRight: Theme.spacing.md },
+    profile: { width: 90, height: 90, borderRadius: 45, marginRight: Theme.spacing.md, borderWidth: 1, borderColor: Theme.colors.lightGray },
     venueName: { fontWeight: Theme.fontWeights.bold, fontSize: Theme.fontSizes.lg, color: Theme.colors.black },
     separator: { borderBottomWidth: 1, borderBottomColor: Theme.colors.lightGray, },
     bottomSection: { padding: Theme.spacing.md },
