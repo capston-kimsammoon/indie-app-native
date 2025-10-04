@@ -1,4 +1,5 @@
 // app/stamp/index.tsx
+// app/stamp/index.tsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
@@ -10,17 +11,18 @@ import {
   Modal,
   Platform,
   TouchableWithoutFeedback,
-  TextInput,
   StatusBar,
   RefreshControl,
-  ActivityIndicator,
+  ActivityIndicator, Alert
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import Theme from "@/constants/Theme";
 import { Picker } from "@react-native-picker/picker";
 import { Stamp as StampIcon } from "lucide-react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { fetchCollectedStamps} from "@/api/stampApi"
+import { fetchCollectedStamps } from "@/api/StampApi";
+import { getDateFromDateString } from "@/utils/dateUtils";
+import IcStamper from "@/assets/icons/ic-stamper.svg";
+import { useAuthStore } from "@/src/state/authStore";
 
 type UIStamp = { id: number; image: string; date: string };
 
@@ -32,17 +34,10 @@ type ServerStamp = {
   } | null;
 };
 
-const toDotDate = (s?: string | null): string => {
-  if (!s) return "-";
-  const d = s.split("T", 1)[0];
-  return d.replace(/-/g, ".");
-};
 export default function StampPage() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const search =
-    typeof params.search === 'string' ? params.search : undefined;
   const now = new Date();
+  const { user } = useAuthStore();
 
   // 기간(연/월)
   const [startYear, setStartYear] = useState(now.getFullYear());
@@ -59,10 +54,6 @@ export default function StampPage() {
   // 바텀시트 모달
   const [showRangeSheet, setShowRangeSheet] = useState(false);
 
-  // 검색
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [q, setQ] = useState("");
-
   // 로딩/리프레시/에러
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,10 +61,6 @@ export default function StampPage() {
 
   // 서버 스탬프
   const [serverStamps, setServerStamps] = useState<ServerStamp[]>([]);
-
-  useEffect(() => {
-    if (params?.search) setSearchOpen(true);
-  }, [params?.search]);
 
   const YEARS = useMemo(() => {
     const base = now.getFullYear();
@@ -85,6 +72,21 @@ export default function StampPage() {
     if (!range) return "전체";
     return `${range.startY}.${range.startM} ~ ${range.endY}.${range.endM}`;
   }, [range]);
+
+  useEffect(() => {
+    if (!user) {
+      Alert.alert("로그인 필요", "로그인 후 스탬프를 이용할 수 있어요.", [
+        {
+          text: "확인",
+          onPress: () => router.back(), // 이전 페이지로 이동
+        },
+      ]);
+    }
+  }, [user]);
+
+  if (!user) {
+    return null; // 화면 렌더링 안 함
+  }
 
   // 서버 호출 (연/월 모두 전달)
   const load = useCallback(
@@ -121,27 +123,14 @@ export default function StampPage() {
 
   // UI 변환 (날짜만 표기)
   const uiStamps: UIStamp[] = useMemo(() => {
-    const base: UIStamp[] =
-      (serverStamps || []).map((s) => ({
-        id: s.id,
-        image:
-          s.performance?.image_url ??
-          "https://dummyimage.com/100x100/eeeeee/aaaaaa&text=NO+IMG",
-        date: toDotDate(s.performance?.date),
-      })) ?? [];
-
-    const key = q.trim().toLowerCase();
-    if (!key) return base;
-    return base.filter(
-      (s) => s.date.toLowerCase().includes(key) || String(s.id).includes(key)
-    );
-  }, [serverStamps, q]);
-
-  const clearSearch = () => {
-    setQ("");
-    setSearchOpen(false);
-    router.setParams({ search: undefined as any });
-  };
+    return (serverStamps || []).map((s) => ({
+      id: s.id,
+      image:
+        s.performance?.image_url ??
+        "https://dummyimage.com/100x100/eeeeee/aaaaaa&text=NO+IMG",
+      date: getDateFromDateString(s.performance?.date),
+    }));
+  }, [serverStamps]);
 
   // 기간 적용
   const applyRange = () => {
@@ -161,31 +150,6 @@ export default function StampPage() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-
-      {/* 검색바 */}
-      {searchOpen && (
-        <View style={styles.searchBarWrap}>
-          <Ionicons name="search" size={Theme.iconSizes.sm} color={Theme.colors.gray} />
-          <TextInput
-            value={q}
-            onChangeText={setQ}
-            placeholder="스탬프 검색"
-            placeholderTextColor={Theme.colors.gray}
-            style={styles.searchInput}
-            returnKeyType="search"
-            autoFocus
-          />
-          {q.length > 0 ? (
-            <Pressable onPress={() => setQ("")} hitSlop={10}>
-              <Ionicons name="close-circle" size={Theme.iconSizes.sm} color={Theme.colors.gray} />
-            </Pressable>
-          ) : (
-            <Pressable onPress={clearSearch} hitSlop={10}>
-              <Ionicons name="close" size={Theme.iconSizes.sm} color={Theme.colors.gray} />
-            </Pressable>
-          )}
-        </View>
-      )}
 
       {/* 필터: 모달 트리거 */}
       <View style={styles.filterRow}>
@@ -212,11 +176,18 @@ export default function StampPage() {
             <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
           }
         >
-          {error && <Text style={{ color: Theme.colors.themeOrange, marginBottom: Theme.spacing.md }}>{error}</Text>}
+          {error && (
+            <Text style={{ color: Theme.colors.themeOrange, marginBottom: Theme.spacing.md }}>
+              {error}
+            </Text>
+          )}
 
           {uiStamps.map((s) => (
             <View key={s.id} style={styles.stampItem}>
-              <Image source={{ uri: s.image }} style={styles.stampImage} />
+              <Image
+                source={s.image ? { uri: s.image } : require('@/assets/images/modie-sample.png')}
+                style={styles.stampImage}
+              />
               <Text style={styles.stampDate}>{s.date}</Text>
             </View>
           ))}
@@ -231,7 +202,7 @@ export default function StampPage() {
 
       {/* 스탬프 받기 */}
       <Pressable style={styles.fab} onPress={() => router.push("/getstamp")}>
-        <StampIcon size={Theme.iconSizes.lg} color={Theme.colors.black} />
+        <IcStamper width={Theme.iconSizes.xl} height={Theme.iconSizes.xl} />
       </Pressable>
 
       {/* 바텀시트 모달 */}
@@ -327,23 +298,6 @@ export default function StampPage() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.white },
 
-  // 검색바
-  searchBarWrap: {
-    marginHorizontal: Theme.spacing.md,
-    marginTop: Theme.spacing.sm,
-    marginBottom: Theme.spacing.sm,
-    borderRadius: Theme.spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.lightGray,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.sm,
-    gap: Theme.spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Theme.colors.white,
-  },
-  searchInput: { flex: 1, paddingVertical: 2, fontSize: Theme.fontSizes.sm, color: Theme.colors.black },
-
   // 필터 행
   filterRow: {
     flexDirection: "row",
@@ -360,10 +314,11 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     justifyContent: "center",
   },
-  pillText: { color: Theme.colors.darkGray, fontSize: Theme.fontSizes.xs },
+  pillText: { color: Theme.colors.darkGray, fontSize: Theme.fontSizes.sm, fontWeight: Theme.fontWeights.medium },
   appliedText: {
     color: Theme.colors.darkGray,
     fontSize: Theme.fontSizes.xs,
+    fontWeight: Theme.fontWeights.medium,
     marginLeft: Theme.spacing.xs,
   },
 
@@ -371,19 +326,25 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-around",
+    justifyContent: "flex-start",
     paddingVertical: Theme.spacing.lg,
     rowGap: Theme.spacing.lg,
   },
-  stampItem: { alignItems: "center", width: "33%" },
+  stampItem: { alignItems: "center", width: "33.33%", marginBottom: Theme.spacing.md,},
   stampImage: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    marginBottom: Theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: Theme.colors.lightGray,
+    marginBottom: Theme.spacing.md,
     backgroundColor: Theme.colors.white,
   },
-  stampDate: { fontSize: Theme.fontSizes.xs, color: Theme.colors.darkGray },
+  stampDate: { 
+    fontSize: Theme.fontSizes.xs, 
+    fontWeight: Theme.fontWeights.medium,
+    color: Theme.colors.darkGray 
+  },
 
   // FAB
   fab: {
@@ -419,7 +380,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.spacing.md,
     maxHeight: 380,
     minHeight: 260,
-    paddingBottom: Theme.spacing.md,
+    paddingBottom: Theme.spacing.xl,
     elevation: 8,
     shadowColor: Theme.colors.black,
     shadowOpacity: 0.15,

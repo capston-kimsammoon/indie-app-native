@@ -4,7 +4,6 @@ import { View, Text, StyleSheet, FlatList } from "react-native";
 import Theme from "@/constants/Theme";
 import PerformanceCard from "@/components/cards/PerformanceCard";
 import { useRouter } from "expo-router";
-import { getDateFromDateString } from "@/utils/dateUtils";
 import { useEffect, useState } from "react";
 import { fetchPopularPerformances } from "@/api/PerformanceApi";
 import { Performance } from "@/types/performance";
@@ -35,7 +34,7 @@ export default function PopularPerformances() {
           <PerformanceCard
             type="popular"
             title={item.title}
-            date={getDateFromDateString(item.date)}
+            date={item.date}
             posterUrl={item.posterUrl || item.thumbnail}
             onPress={() => router.push(`/performance/${item.id}`)}
           />

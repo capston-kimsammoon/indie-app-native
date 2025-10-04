@@ -25,12 +25,15 @@ export default function ArtistCard({
                 onPress={onPress}
                 style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
             >
-                <Image source={{ uri: profileUrl }} style={styles.image} />
+                <Image source={profileUrl ? { uri: profileUrl } : require('@/assets/images/modie-sample.png')} style={styles.image} />
                 <Text style={styles.name}>{name}</Text>
             </Pressable>
 
             <Pressable style={styles.heartButton} onPress={onToggleLike}>
-                {liked ? <IcHeartFilled width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} /> : <IcHeartOutline width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} />}
+                {liked ? 
+                <IcHeartFilled width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} /> 
+                : <IcHeartOutline width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} stroke={Theme.colors.lightGray} />
+                }
             </Pressable>
         </View>
     );
@@ -55,12 +58,12 @@ const styles = StyleSheet.create({
         color: Theme.colors.black,
     },
     heartButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Theme.colors.lightGray,
-    alignItems: "center",
-    justifyContent: "center",
-},
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Theme.colors.lightGray,
+        alignItems: "center",
+        justifyContent: "center",
+    },
 });

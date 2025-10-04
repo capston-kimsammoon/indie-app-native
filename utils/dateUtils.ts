@@ -18,7 +18,7 @@ export function getDateFromDateString(dateStr: string): string {
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, "0");
   const day = String(dateObj.getDate()).padStart(2, "0");
-  return `${year}.${month}.${day}`;
+  return `${year}. ${month}. ${day}.`;
 }
 
 
@@ -38,7 +38,7 @@ export const formatDate = (dateInput: string | Date) => {
 
   const weekday = WEEKDAYS[dateObj.getDay()];
 
-  return `${year}.${month}.${day} ${weekday}`;
+  return `${year}. ${month}. ${day}. ${weekday}`;
 };
 
 
@@ -65,7 +65,7 @@ export const formatDateTime = (dateInput: string | Date, time?: string) => {
   const day = String(date.getDate()).padStart(2, "0");
   const weekday = WEEKDAYS[date.getDay()];
 
-  const base = `${year}.${month}.${day} ${weekday}`;
+  const base = `${year}. ${month}. ${day}. ${weekday}`;
   return time ? `${base} ${formatTime(time)}` : base;
 };
 
@@ -79,7 +79,7 @@ export function formatISODateTime(isoString: string): string {
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
 
-  return `${year}.${month}.${day} ${hours}:${minutes}`;
+  return `${year}. ${month}. ${day}. ${hours}:${minutes}`;
 }
 
 export function calcDDay(targetDate: Date): string {
@@ -104,7 +104,6 @@ export function formatRelativeTime(dateInput: string | Date): string {
   const seconds = Math.floor(diff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
 
   // 1분 미만
   if (seconds < 60) {

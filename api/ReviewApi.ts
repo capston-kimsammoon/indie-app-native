@@ -1,54 +1,6 @@
-// src/api/ReviewApi.ts
-// -----------------------------------------------------------
-// 백엔드 스펙(2025-10-01) 기준
-// - 내 리뷰:    GET    /venue/my/review   (page, size<=100, order)
-// - 작성:       POST   /venue/{id}/review/write (multipart)
-// - 삭제:       DELETE /venue/review/{review_id}
-// - 좋아요:     POST   /venue/review/{review_id}/like
-//               DELETE /venue/review/{review_id}/like
-// - (옵션) 공연장 리뷰: GET /venue/{id}/review
-// - (옵션) 전체 리뷰:   GET /venue/reviews
-// -----------------------------------------------------------
-
+// ReviewApi.ts
 import http from "./http";
-
-// ===== 타입(백 스키마에 맞춤) =====
-export type ReviewImageWire = { image_url?: string | null } | string;
-export type ReviewUserWire = {
-  id?: number | null;
-  nickname?: string | null;
-  profile_url?: string | null;
-};
-
-export type ReviewItemWire = {
-  id: number;
-  content?: string | null;
-  created_at?: string | number | Date | null;
-  user?: ReviewUserWire | null;
-  images?: ReviewImageWire[] | null;
-  like_count?: number | null;
-  liked_by_me?: boolean | null;
-
-  // (옵션) 일부 엔드포인트에서만
-  venue?: { id?: number | null; name?: string | null; logo_url?: string | null } | null;
-  venue_id?: number | null;
-  venue_name?: string | null;
-};
-
-export type NormalizedReview = {
-  id: number;
-  text: string;
-  created_at: string;     // ISO
-  author: string;
-  profile_url?: string;
-  images: string[];
-  like_count: number;
-  is_liked: boolean;
-  user_id?: number | null;
-  venue_id?: number | null;
-  venue_name?: string;
-  raw?: any;
-};
+import { ReviewItemWire, NormalizedReview, ReviewCreateWire } from "@/types/review";
 
 // ===== 유틸 =====
 function toIsoStringSafe(v: any): string {
@@ -59,55 +11,69 @@ function toIsoStringSafe(v: any): string {
   return String(v);
 }
 
-function toImages(arr: ReviewImageWire[] | null | undefined): string[] {
+function toImages(arr: ReviewItemWire["images"]): string[] {
   if (!arr) return [];
-  return arr
-    .map((x) => (typeof x === "string" ? x : x?.image_url || ""))
-    .filter(Boolean);
+  return arr.map((x) => (typeof x === "string" ? x : x?.image_url || "")).filter(Boolean);
 }
 
-function normalizeReview(r: ReviewItemWire): NormalizedReview {
+// ===== normalize =====
+export function normalizeReview(r: ReviewItemWire): NormalizedReview {
   const u = r?.user ?? {};
-  const v = r?.venue ?? {};
   return {
     id: Number(r.id),
-    text: r?.content ?? "",
-    created_at: toIsoStringSafe(r?.created_at),
-    author: u?.nickname || "익명",
-    profile_url: (u?.profile_url ?? "") || undefined,
-    images: toImages(r?.images),
-    like_count: Number(r?.like_count ?? 0),
-    is_liked: Boolean(r?.liked_by_me ?? false),
-    user_id: u?.id ?? null,
-    venue_id: (r?.venue_id ?? v?.id) ?? null,
-    venue_name: (r?.venue_name ?? (v as any)?.name) || "",
+    text: r.content ?? "",
+    created_at: toIsoStringSafe(r.created_at),
+    author: u.nickname || "익명",
+    profile_url: u.profile_url || undefined,
+    images: toImages(r.images),
+    like_count: Number(r.like_count ?? 0),
+    is_liked: Boolean(r.liked_by_me ?? false),
+    user_id: u.id ?? null,
+    venue: r.venue
+      ? {
+          id: r.venue.id ?? null,
+          name: r.venue.name ?? "",
+          logo_url: r.venue.logo_url ?? "",
+        }
+      : null,
     raw: r,
   };
 }
 
-// ===== API =====
+// ===== API 함수 =====
 
-// 내가 쓴 리뷰
-export async function fetchMyReviews({
-  page = 1,
-  size = 20,                 // 서버 최대 100
-  order = "desc",
-}: {
-  page?: number;
-  size?: number;
-  order?: "asc" | "desc";
-} = {}): Promise<{ total: number; page: number; size: number; items: NormalizedReview[] }> {
-  const s = Math.min(100, Math.max(1, size));
-  const res = await http.get("/venue/my/review", { params: { page, size: s, order } });
+// 1. 전체 리뷰
+export async function fetchAllReviews({ page = 1, size = 20, order = "desc" } = {}) {
+  const params: Record<string, any> = { page, size, order };
+  Object.keys(params).forEach((k) => params[k] === undefined && delete params[k]);
+
+  const res = await http.get("/venue/reviews/all", { params });
   if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
 
   const list: ReviewItemWire[] = Array.isArray(res.data?.items) ? res.data.items : [];
-  const items = list.map(normalizeReview);
-  const total = Number(res.data?.total ?? items.length);
-  return { total, page: Number(res.data?.page ?? page), size: Number(res.data?.size ?? s), items };
+  return {
+    total: Number(res.data?.total ?? list.length),
+    page: Number(res.data?.page ?? page),
+    size: Number(res.data?.size ?? size),
+    items: list.map(normalizeReview),
+  };
 }
 
-// (옵션) 공연장 리뷰
+// 2. 내가 쓴 리뷰
+export async function fetchMyReviews({ page = 1, size = 20, order = "desc" } = {}) {
+  const s = Math.min(100, Math.max(1, size));
+  const res = await http.get("/venue/my/review", { params: { page, size: s, order } });
+  if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
+  const list: ReviewItemWire[] = Array.isArray(res.data?.items) ? res.data.items : [];
+  return {
+    total: Number(res.data?.total ?? list.length),
+    page: Number(res.data?.page ?? page),
+    size: Number(res.data?.size ?? s),
+    items: list.map(normalizeReview),
+  };
+}
+
+// 3. 특정 공연장 리뷰
 export async function fetchVenueReviewList(
   venueId: number,
   { page = 1, size = 10 }: { page?: number; size?: number } = {}
@@ -124,28 +90,7 @@ export async function fetchVenueReviewList(
   };
 }
 
-// (옵션) 전체 리뷰
-export async function fetchAllReviews({
-  page = 1,
-  size = 20,
-  order = "desc",
-}: {
-  page?: number;
-  size?: number;
-  order?: "asc" | "desc";
-} = {}) {
-  const res = await http.get("/venue/reviews", { params: { page, size, order } });
-  if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
-  const list: ReviewItemWire[] = Array.isArray(res.data?.items) ? res.data.items : [];
-  return {
-    total: Number(res.data?.total ?? list.length),
-    page: Number(res.data?.page ?? page),
-    size: Number(res.data?.size ?? size),
-    items: list.map(normalizeReview),
-  };
-}
-
-// 작성 (multipart)
+// 4. 리뷰 작성
 export async function createVenueReview(
   venueId: number,
   content: string,
@@ -153,6 +98,7 @@ export async function createVenueReview(
 ): Promise<NormalizedReview> {
   const form = new FormData();
   form.append("content", content);
+
   images.slice(0, 6).forEach((img, idx) => {
     const file =
       typeof img === "string"
@@ -164,27 +110,30 @@ export async function createVenueReview(
   const res = await http.post(`/venue/${venueId}/review/write`, form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+
   if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
+
   return normalizeReview(res.data as ReviewItemWire);
 }
 
-// 삭제
-export async function deleteReview(reviewId: number): Promise<boolean> {
+
+// 5. 리뷰 삭제
+export async function deleteReview(reviewId: number) {
   const res = await http.delete(`/venue/review/${reviewId}`);
   if (res.status < 200 || res.status >= 300) throw new Error("리뷰 삭제 실패");
   return true;
 }
 
-// 좋아요
+// 6. 좋아요
 export async function likeReview(reviewId: number) {
   const res = await http.post(`/venue/review/${reviewId}/like`, {});
   if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
-  return res.data; // { like_count, liked_by_me: true }
+  return res.data;
 }
 
-// 좋아요 취소
+// 7. 좋아요 취소
 export async function unlikeReview(reviewId: number) {
   const res = await http.delete(`/venue/review/${reviewId}/like`);
   if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
-  return res.data; // { like_count, liked_by_me: false }
+  return res.data;
 }

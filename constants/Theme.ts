@@ -16,6 +16,9 @@ export default {
 
     // 테마 색상
     themeOrange: '#3C9C58',
+
+    // red
+    red: '#FF0000',
   },
 
   fontSizes: {

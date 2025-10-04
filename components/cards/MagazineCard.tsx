@@ -10,7 +10,7 @@ type MagazineCardProps = {
 };
 
 export default function MagazineCard({ item, onPress }: MagazineCardProps) {
-    const mainImage = item.images?.[0]?.imageUrl || item.coverImageUrl || "https://picsum.photos/400/200";
+    const mainImage = item.images?.[0]?.imageUrl || item.coverImageUrl;
     const [imgWidth, setImgWidth] = useState(0);
 
     useEffect(() => {
@@ -58,12 +58,12 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: "column",
         justifyContent: "space-between",
+        paddingVertical: Theme.spacing.xs,
     },
     title: {
         fontSize: Theme.fontSizes.base,
         fontWeight: Theme.fontWeights.semibold,
         color: Theme.colors.black,
-        marginBottom: Theme.spacing.xs,
     },
     content: {
         fontSize: Theme.fontSizes.sm,

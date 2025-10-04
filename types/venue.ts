@@ -12,18 +12,6 @@ export type VenueListResponse = {
   venue: Venue[];
 };
 
-export interface VenueReviewItem {
-  id: number | string;
-  content: string;
-  userName: string;
-  userProfile?: string; // optional
-}
-
-export interface ReviewListResponse {
-  total: number;
-  items: VenueReviewItem[];
-}
-
 export interface VenueDetailResponse {
   id: number | string;
   name: string;
@@ -36,3 +24,37 @@ export interface VenueDetailResponse {
   upcomingPerformances: Venue[];  // 배열로
   pastPerformances: Venue[];  // 배열로
 }
+
+export type NearbyVenue = {
+  id: number;
+  name: string;
+  lat: number;
+  lng: number;
+  address?: string | null;
+  image_url?: string | null;
+  distance_km?: number;
+  upcoming_performances?: number;
+};
+
+export type FetchVenueListFlexParams = {
+  page: number;
+  size: number;
+  region?: string | string[];
+};
+
+export type NormalizedVenueList<TVenue = unknown> = {
+  venues: TVenue[];
+  page: number;
+  totalPages?: number;
+  total?: number;
+  raw: unknown;
+};
+
+export type UpcomingPerformance = {
+  id: number;
+  title?: string | null;
+  date?: string | null;   // 'YYYY-MM-DD' or ISO
+  time?: string | null;   // 'HH:mm' or similar
+  image_url?: string | null;
+  address?: string | null;
+};

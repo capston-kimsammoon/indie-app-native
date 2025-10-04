@@ -29,7 +29,7 @@ export default function MapWideSelectCard({ data }: { data: Venue }) {
 
   return (
     <View style={styles.wrap}>
-      <Image source={{ uri: poster }} style={styles.poster} />
+      <Image source={poster ? { uri: poster } : require('@/assets/images/modie-sample.png')} style={styles.poster} />
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
         <Text style={styles.time}>{timeText}</Text>

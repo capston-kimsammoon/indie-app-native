@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text, Image, StyleSheet, Pressable } from "react-native";
 import Theme from "@/constants/Theme";
-import { useRouter } from "expo-router";
 
 import IcChevronRight from "@/assets/icons/ic-chevron-right.svg";
 
@@ -14,16 +13,13 @@ type ReviewPrevCardProps = {
 };
 
 export default function ReviewPrevCard({ userProfile, userName, content, isMoreCard = false, onPress }: ReviewPrevCardProps) {
-    const router = useRouter();
-    const defaultProfile = "https://via.placeholder.com/80";
-
     if (isMoreCard) {
         return (
             <Pressable style={styles.moreCard} onPress={onPress}>
                 <Text style={styles.moreText}>리뷰</Text>
                 <View style={styles.moreTextWithIcon}>
                     <Text style={styles.moreText}>더보기</Text>
-                    <IcChevronRight />
+                    <IcChevronRight fill={Theme.colors.gray} />
                 </View>
             </Pressable>
         );
@@ -32,7 +28,7 @@ export default function ReviewPrevCard({ userProfile, userName, content, isMoreC
     return (
         <View style={styles.card}>
             <View style={styles.profileInfo}>
-                <Image source={{uri: userProfile || defaultProfile}} style={styles.profile} />
+                <Image source={userProfile ? {uri: userProfile} : require('@/assets/images/modie-sample.png')} style={styles.profile} />
                 <Text style={styles.userName}>{userName}</Text>
             </View>
             <Text style={styles.content} numberOfLines={1}>{content}</Text>
@@ -61,6 +57,8 @@ const styles = StyleSheet.create({
         height: 25,
         borderRadius: 15,
         marginRight: Theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: Theme.colors.lightGray,
     },
     userName: {
         fontSize: Theme.fontSizes.base,

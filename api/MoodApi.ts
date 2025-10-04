@@ -1,5 +1,5 @@
 // app/MoodApi.ts
-import http from './http'
+import http from './http';
 import { safeArray } from "@/utils/safeArray";
 
 // 무드 목록 가져오기

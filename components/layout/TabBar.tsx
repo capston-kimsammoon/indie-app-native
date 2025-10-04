@@ -35,8 +35,14 @@ export default function TabBar({ pathname }: Props) {
     const isActive = pathname === route;
     const color = isActive ? Theme.colors.themeOrange : Theme.colors.gray;
 
+    const handlePress = () => {
+      if (!isActive) {
+        router.push(route); // 현재 화면이면 push 안 함
+      }
+    };
+
     return (
-      <Pressable style={styles.tab} onPress={() => router.push(route)}>
+      <Pressable style={styles.tab} onPress={handlePress}>
         <Icon width={iconSize} height={iconSize} fill={color} />
         <Text style={[styles.label, { color }]}>{label}</Text>
       </Pressable>

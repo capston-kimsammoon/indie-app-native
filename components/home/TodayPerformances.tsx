@@ -1,9 +1,9 @@
 // components/home/TodayPerformances.tsx
-import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Dimensions, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Image, FlatList, Dimensions, ActivityIndicator, Pressable } from "react-native";
 import { useRef, useState, useEffect } from "react";
+import { useRouter } from "expo-router";
+
 import Theme from "@/constants/Theme";
-import IcChevronLeft from "@/assets/icons/ic-chevron-left.svg";
-import IcChevronRight from "@/assets/icons/ic-chevron-right.svg";
 
 import { getToday, getDateFromDateString, getWeekDayFromDateString } from "@/utils/dateUtils";
 import { fetchTodayPerformances } from "@/api/PerformanceApi";
@@ -11,25 +11,11 @@ import { Performance } from "@/types/performance";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = Theme.spacing.md * 2;
-const BANNER_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING;
+const BANNER_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING; // wrapper 안에서 딱 맞게
 const BANNER_HEIGHT = 160;
 
-// 실제 데이터
-const TODAY_ITEMS = [
-  { id: "1", title: "ROCK N’ROLL BABY11", venue: "스팀펑크락", date: "2025-09-12", posterUrl: "https://picsum.photos/400/200" },
-  { id: "2", title: "오늘 공연 2", venue: "강남 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/400/200" },
-  { id: "3", title: "오늘 공연 3", venue: "이태원 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/400/200" },
-  { id: "4", title: "오늘 공연 4", venue: "신촌 공연장", date: "2025-09-12", posterUrl: "https://picsum.photos/400/200" },
-];
-
-// 무한 루프용 복제 데이터
-const LOOPED_ITEMS = [
-  TODAY_ITEMS[TODAY_ITEMS.length - 1], // 마지막 카드
-  ...TODAY_ITEMS,
-  TODAY_ITEMS[0], // 첫 카드
-];
-
 export default function TodayPerformances() {
+  const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
   const [items, setItems] = useState<Performance[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -37,7 +23,6 @@ export default function TodayPerformances() {
 
   const IcChevronSize = Theme.iconSizes.md;
 
-  // API 호출
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -45,7 +30,6 @@ export default function TodayPerformances() {
       setItems(data);
       setLoading(false);
 
-      // FlatList loop용 첫 위치 보정
       if (data.length > 0) {
         setTimeout(() => {
           flatListRef.current?.scrollToIndex({ index: 1, animated: false });
@@ -55,13 +39,8 @@ export default function TodayPerformances() {
     load();
   }, []);
 
-  // loop 데이터
-  const loopedItems =
-    items.length > 0
-      ? [items[items.length - 1], ...items, items[0]]
-      : [];
+  const loopedItems = items.length > 0 ? [items[items.length - 1], ...items, items[0]] : [];
 
-  // 스크롤 끝났을 때 보정
   const onMomentumScrollEnd = (e: any) => {
     const offset = e.nativeEvent.contentOffset.x;
     const index = Math.round(offset / BANNER_WIDTH);
@@ -75,23 +54,6 @@ export default function TodayPerformances() {
     } else {
       setCurrentIndex(index - 1);
     }
-  };
-
-  // 버튼 클릭 시 한 칸 이동
-  const goToPrev = () => {
-    if (items.length === 0) return;
-    let newIndex = currentIndex - 1;
-    if (newIndex < 0) newIndex = items.length - 1;
-    flatListRef.current?.scrollToIndex({ index: newIndex + 1, animated: true });
-    setCurrentIndex(newIndex);
-  };
-
-  const goToNext = () => {
-    if (items.length === 0) return;
-    let newIndex = currentIndex + 1;
-    if (newIndex >= items.length) newIndex = 0;
-    flatListRef.current?.scrollToIndex({ index: newIndex + 1, animated: true });
-    setCurrentIndex(newIndex);
   };
 
   if (loading) {
@@ -120,40 +82,34 @@ export default function TodayPerformances() {
         <FlatList
           ref={flatListRef}
           data={loopedItems}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Image source={{ uri: item.thumbnail }} style={styles.poster} resizeMode="cover" />
-              <View style={styles.info}>
-                <Text style={styles.performanceTitle} numberOfLines={1}>{item.title}</Text>
-                <Text style={styles.venue}>{item.venue}</Text>
-                <Text style={styles.date}>
-                  {getDateFromDateString(item.date)} {getWeekDayFromDateString(item.date)}
-                </Text>
-              </View>
-            </View>
-          )}
-          keyExtractor={(_, i) => i.toString()}
           horizontal
-          pagingEnabled
+          showsHorizontalScrollIndicator={false}
           snapToInterval={BANNER_WIDTH}
           decelerationRate="fast"
-          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 0 }}
           initialScrollIndex={1}
+          keyExtractor={(_, index) => `today-performance-${index}`}
           getItemLayout={(_, index) => ({
             length: BANNER_WIDTH,
             offset: BANNER_WIDTH * index,
             index,
           })}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => router.push(`/performance/${item.id}`)}>
+              <View style={[styles.card, { width: BANNER_WIDTH }]}>
+                <Image source={item.thumbnail ? { uri: item.thumbnail } : require('@/assets/images/modie-sample.png')} style={styles.poster} resizeMode="cover" />
+                <View style={styles.info}>
+                  <Text style={styles.performanceTitle} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
+                  <Text style={styles.venue} numberOfLines={1} ellipsizeMode="tail">{item.venue}</Text>
+                  <Text style={styles.date}>
+                    {getDateFromDateString(item.date)} {getWeekDayFromDateString(item.date)}
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+          )}
           onMomentumScrollEnd={onMomentumScrollEnd}
         />
-
-        {/* 좌우 버튼 */}
-        <TouchableOpacity style={[styles.iconLeftButton, { left: 0 }]} onPress={goToPrev}>
-          <IcChevronLeft width={IcChevronSize} height={IcChevronSize} />
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.iconRightButton, { right: 0 }]} onPress={goToNext}>
-          <IcChevronRight width={IcChevronSize} height={IcChevronSize} />
-        </TouchableOpacity>
 
         {/* 인디케이터 */}
         <View style={styles.indicator}>
@@ -173,21 +129,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: Theme.fontSizes.lg,
     fontWeight: Theme.fontWeights.semibold,
-    paddingVertical: Theme.spacing.md,
+    paddingBottom: Theme.spacing.md,
   },
   carouselWrapper: {
     position: "relative",
     alignItems: "center",
-    borderRadius: 5,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
     padding: Theme.spacing.md,
+    overflow: "hidden",
   },
   card: {
-    width: BANNER_WIDTH,
     height: BANNER_HEIGHT,
     flexDirection: "row",
-    backgroundColor: Theme.colors.white,
     borderRadius: 8,
     overflow: "hidden",
   },
@@ -195,10 +150,14 @@ const styles = StyleSheet.create({
     height: "100%",
     aspectRatio: 3 / 4,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Theme.colors.lightGray,
   },
   info: {
     justifyContent: "center",
-    marginLeft: Theme.spacing.lg,
+    marginLeft: Theme.spacing.md,
+    marginRight: Theme.spacing.md,
+    flex: 1,
   },
   performanceTitle: {
     fontSize: Theme.fontSizes.lg,
@@ -209,7 +168,7 @@ const styles = StyleSheet.create({
   },
   venue: {
     fontSize: Theme.fontSizes.sm,
-    fontWeight: Theme.fontWeights.regular,
+    fontWeight: Theme.fontWeights.semibold,
     color: Theme.colors.black,
     marginBottom: Theme.spacing.sm,
   },

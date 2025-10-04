@@ -1,3 +1,8 @@
 <resources>
   <string name="app_name">indie-app</string>
+<<<<<<< HEAD
+  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
+  <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
+=======
+>>>>>>> upstream/main
 </resources>

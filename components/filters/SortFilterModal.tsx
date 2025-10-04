@@ -81,7 +81,9 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.white,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    padding: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.md,
+    paddingBottom: Theme.spacing.lg,
   },
   title: {
     fontSize: Theme.fontSizes.lg,

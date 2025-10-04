@@ -7,8 +7,8 @@ import { useArtists } from '@/context/ArtistContext';
 import Theme from "@/constants/Theme";
 import ArtistCard from "@/components/cards/ArtistCard";
 import { fetchArtistList } from "@/api/ArtistApi";
-import { Artist } from "@/types/artist";
 import { like, unlike, TYPE_ARTIST } from "@/api/LikeApi";
+import { requireLogin } from "@/utils/auth";
 
 export default function ArtistListPage() {
     const router = useRouter();
@@ -49,18 +49,20 @@ export default function ArtistListPage() {
 
     // 찜 ON/OFF 처리
     const handleToggleLike = async (artistId: number, currentLiked: boolean) => {
-        const newLiked = !currentLiked;
+        requireLogin(async () => {
+            const newLiked = !currentLiked;
 
-        try {
-            if (newLiked) await like(TYPE_ARTIST, artistId);
-            else await unlike(TYPE_ARTIST, artistId);
+            try {
+                if (newLiked) await like(TYPE_ARTIST, artistId);
+                else await unlike(TYPE_ARTIST, artistId);
 
-            setArtists(prev =>
-                prev.map(a => (a.id === artistId ? { ...a, isLiked: newLiked } : a))
-            );
-        } catch (err: any) {
-            console.error("artist 찜 처리 실패:", err.response?.data || err.message);
-        }
+                setArtists(prev =>
+                    prev.map(a => (a.id === artistId ? { ...a, isLiked: newLiked } : a))
+                );
+            } catch (err: any) {
+                console.error("artist 찜 처리 실패:", err.response?.data || err.message);
+            }
+        });
     };
 
     // 중복 제거된 artists 만들기
@@ -84,9 +86,7 @@ export default function ArtistListPage() {
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.5}
-                ListFooterComponent={
-                    loading ? <ActivityIndicator style={{ margin: 10 }} /> : null
-                }
+                ListFooterComponent={ loading ? <ActivityIndicator style={{ margin: Theme.spacing.sm }} /> : null }
             />
 
         </View>

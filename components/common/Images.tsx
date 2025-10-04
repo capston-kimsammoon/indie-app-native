@@ -51,7 +51,7 @@ export default function Images({ images = [], imageSize = 100 }: Props) {
                     >
                         <Image
                             source={{ uri: item.image_url }}
-                            style={{ width: imageSize, height: imageSize, borderRadius: 8 }}
+                            style={{ width: imageSize, height: imageSize, borderRadius: 8, borderWidth: 1, borderColor: Theme.colors.lightGray }}
                         />
                     </Pressable>
                 )}

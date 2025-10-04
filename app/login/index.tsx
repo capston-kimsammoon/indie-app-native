@@ -15,9 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import Theme from "@/constants/Theme";
 import {
   loginWithKakaoNative,
-  loginWithKakaoWebRedirect,
-  fetchMe,
-} from "@/api/authApi";
+} from "@/api/AuthApi";
+import { fetchUserInfo } from "@/api/UserApi";
 import { useAuthStore } from "@/src/state/authStore";
 
 export default function LoginScreen() {
@@ -30,7 +29,7 @@ export default function LoginScreen() {
       setLoading("kakao");
       if (Platform.OS === "web") {
         // 웹은 리다이렉트 방식 (페이지 이동)
-        await loginWithKakaoWebRedirect();
+        // await loginWithKakaoWebRedirect();
         return; // 페이지 이동함
       }
 
@@ -38,7 +37,7 @@ export default function LoginScreen() {
       await loginWithKakaoNative();
 
       // 토큰 세팅 이후 사용자 정보 확인
-      const me = await fetchMe().catch(() => null);
+      const me = await fetchUserInfo().catch(() => null);
       if (!me) {
         Alert.alert("로그인 실패", "사용자 정보를 가져오지 못했어요.");
         return; // 실패 시 조기 종료
@@ -62,44 +61,44 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Ionicons name="musical-notes" size={42} color={Theme.colors.themeOrange as any} />
-        <Text style={styles.title}>인디앱</Text>
-        <Text style={styles.subtitle}>로그인하고 더 많은 기능을 이용해 보세요</Text>
+      <View style={styles.loginContainer}>
+        <View style={styles.header}>
+          <Ionicons name="musical-notes" size={42} color={Theme.colors.themeOrange} />
+          <Text style={styles.title}>modie</Text>
+          <Text style={styles.subtitle}>로그인하고 더 많은 기능을 이용해 보세요</Text>
+        </View>
+
+        <View style={{ height: 24 }} />
+
+        {/* 카카오 로그인 버튼 */}
+        <Pressable
+          onPress={onKakao}
+          style={({ pressed }) => [styles.kakaoBtn, pressed && { opacity: 0.8 }]}
+          disabled={loading !== null}
+          accessibilityLabel="카카오로 로그인"
+        >
+          
+          <Text style={styles.kakaoText}>카카오로 계속하기</Text>
+          {loading === "kakao" && <ActivityIndicator style={{ marginLeft: 8 }} />}
+        </Pressable>
+
+        {/* 구분선 */}
+        <View style={styles.dividerRow}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>또는</Text>
+          <View style={styles.divider} />
+        </View>
+
+        {/* 게스트로 둘러보기(선택) */}
+        <Pressable
+          onPress={onGuest}
+          style={({ pressed }) => [styles.ghostBtn, pressed && { opacity: 0.7 }]}
+          disabled={loading !== null}
+        >
+          <Text style={styles.ghostText}>로그인 없이 둘러보기</Text>
+          {loading === "guest" && <ActivityIndicator style={{ marginLeft: 8 }} />}
+        </Pressable>
       </View>
-
-      <View style={{ height: 24 }} />
-
-      {/* 카카오 로그인 버튼 */}
-      <Pressable
-        onPress={onKakao}
-        style={({ pressed }) => [styles.kakaoBtn, pressed && { opacity: 0.8 }]}
-        disabled={loading !== null}
-        accessibilityLabel="카카오로 로그인"
-      >
-        
-        <Text style={styles.kakaoText}>카카오로 계속하기</Text>
-        {loading === "kakao" && <ActivityIndicator style={{ marginLeft: 8 }} />}
-      </Pressable>
-
-      {/* 구분선 */}
-      <View style={styles.dividerRow}>
-        <View style={styles.divider} />
-        <Text style={styles.dividerText}>또는</Text>
-        <View style={styles.divider} />
-      </View>
-
-      {/* 게스트로 둘러보기(선택) */}
-      <Pressable
-        onPress={onGuest}
-        style={({ pressed }) => [styles.ghostBtn, pressed && { opacity: 0.7 }]}
-        disabled={loading !== null}
-      >
-        <Text style={styles.ghostText}>로그인 없이 둘러보기</Text>
-        {loading === "guest" && <ActivityIndicator style={{ marginLeft: 8 }} />}
-      </Pressable>
-
-      <View style={{ flex: 1 }} />
 
       {/* 약관/정책(선택) */}
       <Text style={styles.footerText}>
@@ -115,18 +114,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Theme.colors.white,
-    paddingHorizontal: Theme.spacing.lg,
-    paddingTop: Theme.spacing.xl,
   },
-  header: { alignItems: "center", marginTop: 40 },
+  loginContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    paddingHorizontal: Theme.spacing.lg,
+  },
+  header: { alignItems: "center", },
   title: {
     fontSize: 28,
-    marginTop: 8,
+    marginVertical: Theme.spacing.md,
     fontWeight: Theme.fontWeights.bold as any,
     color: Theme.colors.black as any,
   },
   subtitle: {
-    marginTop: 8,
+    marginBottom: Theme.spacing.md,
     color: Theme.colors.darkGray as any,
     fontSize: Theme.fontSizes.sm,
     textAlign: "center",
@@ -165,6 +169,7 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.lightGray as any,
     alignItems: "center",
     justifyContent: "center",
+    alignSelf: "stretch",
   },
   ghostText: {
     color: Theme.colors.black as any,

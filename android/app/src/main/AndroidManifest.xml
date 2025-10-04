@@ -27,6 +27,10 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
+<<<<<<< HEAD
+        <data android:scheme="indieapp"/>
+=======
+>>>>>>> upstream/main
         <data android:scheme="exp+indie-app"/>
       </intent-filter>
     </activity>

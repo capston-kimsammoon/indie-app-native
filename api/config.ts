@@ -1,6 +1,8 @@
 // config.ts
 const config = {
-  baseUrl: 'http://192.168.45.177:8000', // 실제 API 주소로 변경
+  baseUrl:
+    process.env.EXPO_PUBLIC_API_BASE_URL ||
+    'http://192.168.45.86:8000', // 기본값: 실제 API 주소
   timeout: 5000, // 5초 타임아웃
 };
 

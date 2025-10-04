@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
   StatusBar,
@@ -10,14 +10,13 @@ import {
   Pressable,
   Modal,
   TouchableWithoutFeedback,
-  TextInput,
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { fetchAvailableStamps, collectStamp } from "@/api/stampApi";
+import { useRouter } from "expo-router";
+import { fetchAvailableStamps, collectStamp } from "@/api/StampApi";
 import Theme from "@/constants/Theme";
+
 type Candidate = {
   id: number;
   title: string;
@@ -37,20 +36,14 @@ function toYmd(dateLike?: string | number | Date) {
 
 export default function GetStampPage() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ search?: string }>();
-
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [q, setQ] = useState("");
 
   const [items, setItems] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [selected, setSelected] = useState<Candidate | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  useEffect(() => {
-    if (params?.search) setSearchOpen(true);
-  }, [params?.search]);
+  const GAP = Theme.spacing.md;
+  const NUM_COLUMNS = 3;
 
   useEffect(() => {
     (async () => {
@@ -74,45 +67,9 @@ export default function GetStampPage() {
     })();
   }, []);
 
-  const filtered = useMemo(() => {
-    const key = q.trim().toLowerCase();
-    if (!key) return items;
-    return items.filter((e) => e.title.toLowerCase().includes(key));
-  }, [q, items]);
-
-  const clearSearch = () => {
-    setQ("");
-    setSearchOpen(false);
-    router.setParams({ search: undefined as any });
-  };
-
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
-
-      {searchOpen && (
-        <View style={styles.searchBarWrap}>
-          <Ionicons name="search" size={18} color={Theme.colors.lightGray} />
-          <TextInput
-            value={q}
-            onChangeText={setQ}
-            placeholder="리뷰/공연장 검색"
-            placeholderTextColor={Theme.colors.lightGray}
-            style={styles.searchInput}
-            returnKeyType="search"
-            autoFocus
-          />
-          {q.length > 0 ? (
-            <Pressable onPress={() => setQ("")} hitSlop={10}>
-              <Ionicons name="close-circle" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
-            </Pressable>
-          ) : (
-            <Pressable onPress={clearSearch} hitSlop={10}>
-              <Ionicons name="close" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
-            </Pressable>
-          )}
-        </View>
-      )}
 
       {loading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -120,38 +77,59 @@ export default function GetStampPage() {
         </View>
       ) : (
         <FlatList
-          data={filtered}
+          data={items}
           keyExtractor={(item) => String(item.id)}
-          numColumns={3}
-          columnWrapperStyle={styles.column}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
+          numColumns={NUM_COLUMNS}
+          columnWrapperStyle={{
+            justifyContent: "flex-start",
+            marginBottom: GAP,
+          }}
+          contentContainerStyle={{
+            paddingHorizontal: GAP / 2,
+            paddingTop: GAP,
+            paddingBottom: GAP,
+          }}
+          renderItem={({ item, index }) => (
             <Pressable
-              style={styles.card}
+              style={{
+                flex: 1,
+                marginHorizontal: GAP / 2,
+                marginBottom: GAP,
+                alignItems: "center",
+              }}
               onPress={() => {
                 setSelected(item);
                 setShowConfirm(true);
               }}
             >
               <Image
-                source={{
-                  uri:
-                    item.posterUrl ||
-                    "https://dummyimage.com/300x420/eeeeee/aaaaaa&text=NO+IMAGE",
+                source={item.posterUrl ? { uri: item.posterUrl } : require('@/assets/images/modie-sample.png')}
+                style={{
+                  width: 100,
+                  height: 140,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: Theme.colors.lightGray,
                 }}
-                style={styles.poster}
               />
-              <Text style={styles.cardTitle} numberOfLines={1}>
+              <Text
+                style={{
+                  fontSize: Theme.fontSizes.sm,
+                  fontWeight: Theme.fontWeights.medium,
+                  color: Theme.colors.black,
+                  maxWidth: 100,
+                  textAlign: "center",
+                  marginTop: Theme.spacing.sm,
+                }}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {item.title}
               </Text>
             </Pressable>
           )}
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>해당하는 공연이 없어요</Text>
-            </View>
-          }
         />
+
       )}
 
       {/* 확인 모달 */}
@@ -172,8 +150,14 @@ export default function GetStampPage() {
                     try {
                       if (selected) {
                         await collectStamp(selected.id);
-                        Alert.alert("완료", "스탬프를 수집했어요!");
-                        router.push("/mystamp");
+                        Alert.alert(
+                          "스탬프 수집 완료",
+                          `${selected.title} 공연의 스탬프를 받았어요!`,
+                          [
+                            { text: "스탬프 리스트 이동", onPress: () => router.push("/mystamp") },
+                            { text: "닫기", style: "cancel" }
+                          ]
+                        );
                       }
                     } catch (e: any) {
                       console.error(e);
@@ -200,36 +184,8 @@ export default function GetStampPage() {
   );
 }
 
-const GAP = Theme.spacing.md;
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Theme.colors.white },
-
-  searchBarWrap: {
-    marginHorizontal: Theme.spacing.md,
-    marginTop: Theme.spacing.sm,
-    marginBottom: Theme.spacing.sm,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.lightGray,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.sm,
-    gap: Theme.spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Theme.colors.white,
-  },
-  searchInput: { flex: 1, paddingVertical: 2, fontSize: Theme.fontSizes.sm, color: Theme.colors.black },
-
-  list: { paddingHorizontal: Theme.spacing.md, paddingTop: Theme.spacing.md, paddingBottom: Theme.spacing.lg },
-  column: { gap: GAP, marginBottom: GAP },
-  card: { flex: 1, alignItems: "center", gap: Theme.spacing.sm },
-  poster: { width: 100, height: 140, borderRadius: 8},
-  cardTitle: { fontSize: Theme.fontSizes.xs, color: Theme.colors.black, maxWidth: 100 },
-
-  emptyWrap: { alignItems: "center", paddingTop: 64 },
-  emptyText: { color: Theme.colors.lightGray},
-
   backdrop: {
     flex: 1,
     backgroundColor: Theme.colors.gray,
@@ -250,5 +206,5 @@ const styles = StyleSheet.create({
   ok: { backgroundColor: Theme.colors.themeOrange },
   okText: { color: Theme.colors.white, fontWeight: Theme.fontWeights.semibold },
   cancel: { backgroundColor: Theme.colors.white },
-  cancelText: { color: Theme.colors.darkGray, fontWeight:Theme.fontWeights.semibold },
+  cancelText: { color: Theme.colors.darkGray, fontWeight: Theme.fontWeights.semibold },
 });

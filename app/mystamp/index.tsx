@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { fetchCollectedStamps } from "@/api/stampApi";
+import { fetchCollectedStamps } from "@/api/StampApi";
 import Theme from "@/constants/Theme";
 type StampRow = {
   id: number;

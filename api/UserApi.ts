@@ -1,31 +1,7 @@
-// src/api/userApi.ts
+// api/UserApi.ts
 import http from "./http";
 import type { AxiosError } from "axios";
-
-// ====== 공용 타입 ======
-export type User = {
-  id: number;
-  nickname: string;
-  profile_url?: string | null;
-  alarm_enabled?: boolean | null;
-  location_enabled?: boolean | null;
-  // 필요 시 필드 추가...
-  [k: string]: any;
-};
-
-export type UpdateSettingsBody = {
-  alarm_enabled?: boolean;
-  location_enabled?: boolean;
-};
-
-export type LogoutResponse = { message: string };
-
-// RN ImagePicker 등에서 넘어오는 대충의 형태를 수용
-export type AssetLike = {
-  uri: string;
-  fileName?: string;
-  mimeType?: string;
-};
+import { User, UpdateSettingsBody, LogoutResponse, AssetLike} from "@/types/user";
 
 // ====== 유틸 ======
 function parseAxiosErr(e: unknown): never {
@@ -94,7 +70,7 @@ export async function updateProfileImage(
 /** 3-2) 프로필 이미지 제거 */
 export async function removeProfileImage(): Promise<{ profileImageUrl?: string } & Partial<User>> {
   try {
-    const { data } = await http.patch("/user/me/profile-image", {});
+    const { data } = await http.patch("/user/me/profile-image");
     return data ?? {};
   } catch (e) {
     return parseAxiosErr(e);
@@ -119,7 +95,7 @@ export async function updateUserSettings(
 }
 
 /** 5) 로그아웃 (비로그인이라도 조용히 통과) */
-export async function logout(): Promise<LogoutResponse> {
+export async function logoutApi(): Promise<LogoutResponse> {
   try {
     const { data } = await http.post<LogoutResponse>("/auth/logout");
     return data;
@@ -127,7 +103,6 @@ export async function logout(): Promise<LogoutResponse> {
     return { message: "이미 로그아웃 상태입니다." };
   }
 }
-
 /** 6) 선택적 유저 조회 (그냥 래핑) */
 export async function fetchUserInfoOptional(): Promise<User | null> {
   return fetchUserInfo();

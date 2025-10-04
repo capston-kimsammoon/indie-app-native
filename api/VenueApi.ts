@@ -1,45 +1,8 @@
-// src/api/venueApi.ts
 import http from "./http";
-import {
-  VenueListResponse,
-  VenueDetailResponse,
-  ReviewListResponse, // 사용 시 주석 해제
-} from "@/types/venue";
+import { VenueListResponse, VenueDetailResponse,
+  NearbyVenue, FetchVenueListFlexParams, NormalizedVenueList, UpcomingPerformance, 
+ } from "@/types/venue";
 
-/* ================== 타입 ================== */
-export type NearbyVenue = {
-  id: number;
-  name: string;
-  lat: number;
-  lng: number;
-  address?: string | null;
-  image_url?: string | null;
-  distance_km?: number;
-  upcoming_performances?: number;
-};
-
-export type FetchVenueListFlexParams = {
-  page: number;
-  size: number;
-  region?: string | string[];
-};
-
-export type NormalizedVenueList<TVenue = unknown> = {
-  venues: TVenue[];
-  page: number;
-  totalPages?: number;
-  total?: number;
-  raw: unknown;
-};
-
-export type UpcomingPerformance = {
-  id: number;
-  title?: string | null;
-  date?: string | null;   // 'YYYY-MM-DD' or ISO
-  time?: string | null;   // 'HH:mm' or similar
-  image_url?: string | null;
-  address?: string | null;
-};
 
 /* ============== 공용 유틸 ============== */
 const pickArray = (x: any) =>
@@ -89,7 +52,6 @@ export async function fetchVenueDetail(
  * 가까운 공연장 조회 (반경 km, 기본 3km)
  * 서버가 lng 대신 lon, 반경을 미터로 받을 가능성을 모두 커버
  */
-// src/api/venueApi.ts
 export async function fetchNearbyVenues(
   lat: number,
   lng: number,
@@ -166,17 +128,4 @@ export async function fetchUpcomingPerformancesByVenue(
     console.error("❌ 예정 공연 조회 실패:", e);
     return [];
   }
-}
-
-
-export async function fetchVenueReviews(
-  venueId: number,
-  page: number = 1,
-  size: number = 10
-): Promise<ReviewListResponse> {
-  const { data } = await http.get<ReviewListResponse>(
-    `/venue/${venueId}/review`,
-    { params: { page, size } }
-  );
-  return data;
 }
