@@ -1,4 +1,4 @@
-// ReviewTypes.ts
+// review.ts
 export type ReviewImageWire = { image_url?: string | null } | string;
 
 export type ReviewUserWire = {
@@ -62,3 +62,11 @@ export interface ReviewItem {
     logo_url?: string;
   } | null;
 }
+
+export type ReviewListResponse = {
+  page?: number;
+  size?: number;
+  totalPages?: number;
+  total?: number;
+  reviews: ReviewItemWire[];
+};

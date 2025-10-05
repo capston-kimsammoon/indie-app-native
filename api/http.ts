@@ -10,9 +10,9 @@ export const baseURL = (() => {
     config?.baseUrl ||
     process.env.EXPO_PUBLIC_API_BASE_URL ||
     extra.EXPO_PUBLIC_API_BASE_URL ||
-    (Platform.OS === "ios" ? "http://192.168.45.86:8000" :
-    Platform.OS === "android" ? "http://192.168.45.86:8000" :
-    "http://192.168.45.86:8000")
+    (Platform.OS === "ios" ? "http://192.168.45.167:8000" :
+    Platform.OS === "android" ? "http://192.168.45.167:8000" :
+    "http://192.168.45.167:8000")
   );
 })();
 
