@@ -4,28 +4,33 @@ export interface PerformanceSearchItem {
   title: string;
   venue: string;
   date: string; // ISO string
-  image_url: string;
-}
-
-export interface VenueSearchItem {
-  id: number;
-  name: string;
-  address: string;
-  image_url: string;
+  image_url?: string | null;
 }
 
 export interface PerformanceSearchResponse {
   page: number;
   totalPages: number;
   performance: PerformanceSearchItem[];
-  venue: VenueSearchItem[];
+}
+
+export interface VenueSearchItem {
+  id: number;
+  name: string;
+  address: string;
+  image_url?: string | null;
+}
+
+export interface VenueSearchResponse {
+  page: number;
+  totalPages: number;
+  venues: VenueSearchItem[];
 }
 
 // 아티스트
 export interface ArtistSearchItem {
   id: number;
   name: string;
-  profile_url: string;
+  profile_url?: string | null;
   isLiked: boolean;
   isAlarmEnabled: boolean;
 }

@@ -27,7 +27,7 @@ const RECENT_KEY = "recent_searches";
 
 export default function SearchPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"performance" | "artist">("performance");
+  const [activeTab, setActiveTab] = useState<"performance" | "venue" | "artist">("performance");
   const [query, setQuery] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -90,11 +90,14 @@ export default function SearchPage() {
             posterUrl: p.image_url,
           }))
         );
+      } else if (activeTab === "venue") {
+        const res = await fetchSearchResults.venue(q);
+        console.log("🎯 [DEBUG] 공연장 검색 응답:", res);
         setFilteredVenues(
-          res.venue.map(v => ({
+          res.venues.map(v => ({
             id: v.id.toString(),
             name: v.name,
-            region: v.address,
+            address: v.address,
             profileUrl: v.image_url,
           }))
         );
@@ -106,7 +109,7 @@ export default function SearchPage() {
               id: a.id.toString(),
               name: a.name,
               profileUrl: a.profile_url,
-              liked: a.isLiked ?? false, 
+              liked: a.isLiked ?? false,
             }))
           );
         } catch (err: any) {
@@ -169,23 +172,20 @@ export default function SearchPage() {
       listData.push({ type: "section", title: "공연" });
       filteredPerformances.forEach(item => listData.push({ type: "performance", data: item }));
     } else if (isSearching) {
-      listData.push({ type: "section", title: "공연" });
       listData.push({ type: "empty", data: `'${query}'와(과) 일치하는 공연이 없습니다.` });
     }
-
+  } else if (activeTab === "venue") {
     if (filteredVenues.length > 0) {
       listData.push({ type: "section", title: "공연장" });
       filteredVenues.forEach(item => listData.push({ type: "venue", data: item }));
     } else if (isSearching) {
-      listData.push({ type: "section", title: "공연장" });
       listData.push({ type: "empty", data: `'${query}'와(과) 일치하는 공연장이 없습니다.` });
     }
-  } else {
+  } else if (activeTab === "artist") {
     if (filteredArtists.length > 0) {
       listData.push({ type: "section", title: "아티스트" });
       filteredArtists.forEach(item => listData.push({ type: "artist", data: item }));
     } else if (isSearching) {
-      listData.push({ type: "section", title: "아티스트" });
       listData.push({ type: "empty", data: `'${query}'와(과) 일치하는 아티스트가 없습니다.` });
     }
   }
@@ -258,7 +258,15 @@ export default function SearchPage() {
               onPress={() => setActiveTab("performance")}
             >
               <Text style={[styles.tabText, activeTab === "performance" && styles.activeTabText]}>
-                공연/공연장
+                공연
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === "venue" && styles.activeTab]}
+              onPress={() => setActiveTab("venue")}
+            >
+              <Text style={[styles.tabText, activeTab === "venue" && styles.activeTabText]}>
+                공연장
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -271,6 +279,7 @@ export default function SearchPage() {
             </TouchableOpacity>
           </View>
 
+
           <FlatList
             data={listData}
             keyExtractor={(item, idx) => {
@@ -282,7 +291,6 @@ export default function SearchPage() {
               const nextItem = listData[index + 1];
               const isLastInSection = !nextItem || nextItem.type === "section";
 
-              if (item.type === "section") return <Text style={styles.sectionTitle}>{item.title}</Text>;
               if (item.type === "empty") return <Text style={styles.emptyText}>{item.data}</Text>;
               if (item.type === "performance") {
                 return (

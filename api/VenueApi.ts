@@ -57,18 +57,15 @@ export async function fetchNearbyVenues(
   lng: number,
   radius: number = 3
 ): Promise<NearbyVenue[]> {
-  // 서버는 lat,lng 필수 / radius는 km
   const { data } = await http.get<NearbyVenue[]>("/nearby/venue", {
     params: { lat, lng, radius },
   });
-  // 응답은 배열이며, 필드명은 venue_id / latitude / longitude
   return Array.isArray(data) ? data : [];
 }
 
 
 /**
  * 공연장 목록 조회 (유연/정규화 버전)
- * 서버가 venue/venues/items/... 등으로 내려줘도 배열만 추출
  */
 export async function fetchVenueListFlex<TVenue = unknown>({
   page,
@@ -99,10 +96,6 @@ export async function fetchVenueListFlex<TVenue = unknown>({
 
 /**
  * 특정 공연장의 예정 공연 조회
- * - /nearby/venue/{id}/performance?after=...
- * - 비면 after 제거 재시도
- * - 그래도 비면 /venue/{id}/performance 시도
- * - 결과 정규화 후 반환
  */
 export async function fetchUpcomingPerformancesByVenue(
   venueId: number | string,
@@ -111,13 +104,11 @@ export async function fetchUpcomingPerformancesByVenue(
   const after = afterTime instanceof Date ? afterTime.toISOString() : afterTime;
 
   try {
-    // 1) nearby with after
     const { data } = await http.get<any>(`/nearby/venue/${venueId}/performance`, {
       params: after ? { after } : undefined,
     });
     let arr = pickPerfArray(data);
 
-    // 2) 비면 after 없이 재시도
     if (!arr.length && after) {
       const { data: d2 } = await http.get<any>(`/nearby/venue/${venueId}/performance`);
       arr = pickPerfArray(d2);

@@ -1,3 +1,4 @@
+//app/getstamp/index.tsx
 import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
@@ -34,6 +35,26 @@ function toYmd(dateLike?: string | number | Date) {
   return `${y}.${m}.${day}`;
 }
 
+/** 이미 받은 스탬프 에러인지 판별 (400 + 메시지/코드 키워드) */
+function isAlreadyCollectedError(err: any) {
+  const res = err?.response;
+  if (!res) return false;
+  const status = Number(res.status);
+  const data = res.data || {};
+  const code = String(data.code ?? data.errorCode ?? data.error_code ?? "").toUpperCase();
+  const msg = String(data.message ?? data.detail ?? data.error ?? "").toLowerCase();
+  return (
+    status === 400 &&
+    (
+      code.includes("ALREADY") ||
+      msg.includes("already") ||
+      msg.includes("exists") ||
+      msg.includes("중복") ||
+      msg.includes("이미")
+    )
+  );
+}
+
 export default function GetStampPage() {
   const router = useRouter();
 
@@ -45,26 +66,29 @@ export default function GetStampPage() {
   const GAP = Theme.spacing.md;
   const NUM_COLUMNS = 3;
 
+  // 목록 로더 분리 (원하면 성공/취소 후 리프레시에도 재사용)
+  const loadAvailable = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAvailableStamps(3);
+      const mapped: Candidate[] = (data || []).map((x: any) => ({
+        id: x.performance_id ?? x.id,
+        title: x.title,
+        venue: x.venue,
+        date: toYmd(x.date),
+        posterUrl: x.posterUrl ?? x.venueImageUrl ?? undefined,
+      }));
+      setItems(mapped);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("오류", e?.message ?? "스탬프 후보를 불러오지 못했어요.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await fetchAvailableStamps(3);
-        const mapped: Candidate[] = (data || []).map((x: any) => ({
-          id: x.performance_id ?? x.id,
-          title: x.title,
-          venue: x.venue,
-          date: toYmd(x.date),
-          posterUrl: x.posterUrl ?? x.venueImageUrl ?? undefined,
-        }));
-        setItems(mapped);
-      } catch (e: any) {
-        console.error(e);
-        Alert.alert("오류", e?.message ?? "스탬프 후보를 불러오지 못했어요.");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadAvailable();
   }, []);
 
   return (
@@ -89,7 +113,7 @@ export default function GetStampPage() {
             paddingTop: GAP,
             paddingBottom: GAP,
           }}
-          renderItem={({ item, index }) => (
+          renderItem={({ item }) => (
             <Pressable
               style={{
                 flex: 1,
@@ -129,7 +153,6 @@ export default function GetStampPage() {
             </Pressable>
           )}
         />
-
       )}
 
       {/* 확인 모달 */}
@@ -150,6 +173,7 @@ export default function GetStampPage() {
                     try {
                       if (selected) {
                         await collectStamp(selected.id);
+                        setShowConfirm(false);
                         Alert.alert(
                           "스탬프 수집 완료",
                           `${selected.title} 공연의 스탬프를 받았어요!`,
@@ -158,12 +182,20 @@ export default function GetStampPage() {
                             { text: "닫기", style: "cancel" }
                           ]
                         );
+                        // 필요 시 목록 리프레시
+                        // await loadAvailable();
                       }
                     } catch (e: any) {
                       console.error(e);
-                      Alert.alert("오류", e?.message ?? "스탬프 수집에 실패했어요.");
-                    } finally {
                       setShowConfirm(false);
+                      if (isAlreadyCollectedError(e)) {
+                        Alert.alert(
+                          "이미 받은 스탬프",
+                          `${selected?.title ?? ""} 공연 스탬프는 이미 수집되었습니다.`
+                        );
+                      } else {
+                        Alert.alert("오류", e?.message ?? "스탬프 수집에 실패했어요.");
+                      }
                     }
                   }}
                 >

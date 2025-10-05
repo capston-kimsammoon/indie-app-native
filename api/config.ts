@@ -2,7 +2,7 @@
 const config = {
   baseUrl:
     process.env.EXPO_PUBLIC_API_BASE_URL ||
-    'http://192.168.45.86:8000', // 기본값: 실제 API 주소
+    'http://192.168.45.167:8000', // 기본값: 실제 API 주소
   timeout: 5000, // 5초 타임아웃
 };
 

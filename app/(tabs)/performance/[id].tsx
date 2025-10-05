@@ -191,7 +191,7 @@ export default function PerformanceDetailPage() {
                                         }
                                         style={styles.profile}
                                     />
-                                    <Text style={styles.artistName}>{item.name}</Text>
+                                    <Text style={styles.artistName} numberOfLines={1}>{item.name}</Text>
                                 </Pressable>
                             )}
                         />
@@ -287,9 +287,9 @@ const styles = StyleSheet.create({
     label: { width: "25%", fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold },
     valueWithIcon: { flex: 1, flexDirection: "row", alignItems: "center" },
     value: { fontSize: Theme.fontSizes.base, color: Theme.colors.black, marginRight: Theme.spacing.xs },
-    artist: { alignItems: "center", marginRight: Theme.spacing.md, marginVertical: Theme.spacing.md },
+    artist: { alignItems: "center", marginRight: Theme.spacing.sm, marginTop: Theme.spacing.md },
     profile: { width: 60, height: 60, borderRadius: 30, margin: Theme.spacing.sm, borderWidth: 1, borderColor: Theme.colors.lightGray },
-    artistName: { fontSize: Theme.fontSizes.base, color: Theme.colors.darkGray, textAlign: "center" },
+    artistName: { fontSize: Theme.fontSizes.base, color: Theme.colors.darkGray, textAlign: "center", maxWidth: 80 },
     link: { fontSize: Theme.fontSizes.base, textDecorationLine: "underline" },
     noArtistText: {fontSize: Theme.fontSizes.base, color: Theme.colors.gray, },
 });

@@ -1,9 +1,9 @@
-// app/.../location.tsx
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Image,
-  SafeAreaView, StatusBar, Platform, TextInput, Alert
+  StatusBar, Platform, TextInput, Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -12,7 +12,7 @@ import NaverMapWeb from './venue/NaverMapWeb';
 import CurrentTimeText from './venue/CurrentTimeText';
 import MapWideSelectCard from './venue/MapWideSelectCard';
 
-import Theme from "@/constants/Theme";
+import Theme from '@/constants/Theme';
 import {
   fetchNearbyVenues,
   fetchUpcomingPerformancesByVenue,
@@ -21,9 +21,9 @@ import {
 } from '@/api/VenueApi';
 
 /** ===================== 상수 ===================== */
-const RADIUS_KM = 3;                                   // 기본 검색 반경(km)
-const FALLBACK_CENTER = { lat: 37.5533, lng: 126.9232 }; // 홍대 근처
-const DEFAULT_PAGE_SIZE = 200;                         // 전체 목록 1페이지 크기
+const RADIUS_KM = 3;
+const FALLBACK_CENTER = { lat: 37.5533, lng: 126.9232 }; 
+const DEFAULT_PAGE_SIZE = 200;
 
 /** ============== 타입 ============== */
 export type Performance = {
@@ -45,6 +45,13 @@ export type Venue = {
   upcomingPerformance?: Performance[];
 };
 
+type BoundsPt = { lat: number; lng: number };
+type Bounds = { ne: BoundsPt; sw: BoundsPt };
+
+type RenderRow = { kind: 'row'; items: Venue[] };
+type RenderWide = { kind: 'wide'; venue: Venue };
+type RenderItem = RenderRow | RenderWide;
+
 /** ============== 유틸 ============== */
 const makeLucidePinSVG = (color: string, size = Theme.iconSizes.lg) => `
 <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"
@@ -58,16 +65,9 @@ const makeLucidePinSVG = (color: string, size = Theme.iconSizes.lg) => `
 const PIN_COLOR = Theme.colors.themeOrange;
 const PIN_COLOR_SELECTED = Theme.colors.themeOrange;
 
-type BoundsPt = { lat: number; lng: number };
-type Bounds = { ne: BoundsPt; sw: BoundsPt };
-
-type RenderRow = { kind: 'row'; items: Venue[] };
-type RenderWide = { kind: 'wide'; venue: Venue };
-type RenderItem = RenderRow | RenderWide;
-
 const addrCache = new Map<number, string>();
 
-async function promisePool<T>(tasks: (() => Promise<T>)[], size = 5) {
+async function promisePool<T>(tasks: (() => Promise<T>)[], size = 3) {
   const out: T[] = [];
   let i = 0;
   await Promise.all(
@@ -81,9 +81,8 @@ async function promisePool<T>(tasks: (() => Promise<T>)[], size = 5) {
   return out;
 }
 
-// FastAPI fromisoformat 호환(끝에 Z 없이) 문자열 만들기
 const toNaiveIso = (d: Date) => {
-  const pad = (n: number) => String(n).padStart(2, "0");
+  const pad = (n: number) => String(n).padStart(2, '0');
   const y = d.getFullYear();
   const m = pad(d.getMonth() + 1);
   const day = pad(d.getDate());
@@ -123,7 +122,7 @@ async function enrichVenuesWithDetail(venueList: Venue[]) {
         v.upcomingPerformance = [first];
       }
     }),
-    5
+    3
   );
 
   return venueList.map(v => (v.address ? v : { ...v, address: addrCache.get(v.venue_id) }));
@@ -140,9 +139,8 @@ export default function MapPage() {
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
   const [q, setQ] = useState<string>('');
 
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [mapZoom, setMapZoom] = useState<number>(15);
-
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(FALLBACK_CENTER);
+  const [mapZoom, setMapZoom] = useState<number>(13);
   const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
 
   const listRef = useRef<FlatList<RenderItem>>(null);
@@ -152,7 +150,6 @@ export default function MapPage() {
       ...v,
       venue_id: v.venue_id ?? v.id,
       name: v.name ?? v.title ?? '',
-      // 서버 기본 응답: latitude/longitude (추가 변형 키도 수용)
       latitude: v.latitude ?? v.lat,
       longitude: v.longitude ?? v.lng ?? v.lon,
       thumbnail: v.thumbnail ?? v.image_url ?? v.poster ?? v.cover,
@@ -161,11 +158,10 @@ export default function MapPage() {
     }));
 
   async function attachFirstUpcoming(venueList: Venue[]): Promise<Venue[]> {
-    // 오늘 KST 0시 이후만
     const now = new Date();
     const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
     const kstMidnight = new Date(kst.getFullYear(), kst.getMonth(), kst.getDate());
-    const afterISO = toNaiveIso(kstMidnight); // Z 없는 ISO
+    const afterISO = toNaiveIso(kstMidnight);
 
     const enriched = await Promise.all(
       (venueList || []).map(async (venue) => {
@@ -173,7 +169,7 @@ export default function MapPage() {
           const raw = await fetchUpcomingPerformancesByVenue(venue.venue_id, afterISO);
           const perfs: Performance[] = (raw ?? []).map(p => ({
             id: p.id ?? 0,
-            title: p.title ?? "",
+            title: p.title ?? '',
             date: p.date ?? undefined,
             time: p.time ?? undefined,
             image_url: p.image_url ?? undefined,
@@ -192,25 +188,21 @@ export default function MapPage() {
 
   const inBounds = (v: Venue, b: Bounds | null) => {
     if (!b) return true;
-    if (v.latitude == null || v.longitude == null) return true; // 좌표 없으면 필터 제외 X
+    if (v.latitude == null || v.longitude == null) return true; // 좌표 없으면 필터 제외
     const { ne, sw } = b;
     const latOk = v.latitude >= sw.lat && v.latitude <= ne.lat;
     const lngOk = v.longitude >= sw.lng && v.longitude <= ne.lng;
     return latOk && lngOk;
   };
 
-  /** 공통 로더들 */
   async function loadAllVenues(): Promise<Venue[]> {
     try {
-      const { venues: raw } = await fetchVenueListFlex<any>({
-        page: 1,
-        size: DEFAULT_PAGE_SIZE,
-      });
+      const { venues: raw } = await fetchVenueListFlex<any>({ page: 1, size: DEFAULT_PAGE_SIZE });
       const normalized = normalizeVenues(raw as any[]);
       const withDetail = await enrichVenuesWithDetail(normalized);
       return await attachFirstUpcoming(withDetail);
     } catch (e) {
-      console.error("❌ 전체 공연장 목록 로드 실패:", e);
+      console.error('❌ 전체 공연장 목록 로드 실패:', e);
       return [];
     }
   }
@@ -227,27 +219,66 @@ export default function MapPage() {
   useEffect(() => {
     (async () => {
       try {
-        // ❶ 전체 공연장 먼저 보여주기
+        // ❶ 전체 공연장 먼저 불러오기
         const all = await loadAllVenues();
         setVenues(all);
 
-        // ❷ 위치 권한 후 주변으로 교체
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          const center = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+        // ❷ Expo 권한 상태 확인
+        const { status } = await Location.getForegroundPermissionsAsync();
+        console.log("Location permission status:", status);
+        const enabled = await Location.hasServicesEnabledAsync();
+        console.log("Location services enabled:", enabled);
 
-          let nearby = await loadByCenter(center, RADIUS_KM, 15);
-          if (!nearby.length) {
-            // 필요 시 반경 넓혀 재시도
-            nearby = await loadByCenter(center, 7, 13);
+        if (status === 'granted' && enabled) {
+          // 위치 서비스 켜져있고 권한도 허용됨
+          // → WebView 렌더 후 위치 요청
+          setMapCenter(FALLBACK_CENTER); // 먼저 fallback 렌더
+          setMapZoom(13);
+
+          setTimeout(async () => {
+            try {
+              const loc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Highest, // 높은 정확도
+              });
+              const center = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+              setMapCenter(center);
+              setMapZoom(15);
+
+              let nearby = await loadByCenter(center, RADIUS_KM, 15);
+              if (!nearby.length) nearby = await loadByCenter(center, 7, 13);
+              if (nearby.length) setVenues(nearby);
+
+            } catch (e) {
+              console.warn('위치 가져오기 실패, fallback 사용', e);
+              setMapCenter(FALLBACK_CENTER);
+              setMapZoom(13);
+            }
+          }, 800); // 0.8초 딜레이
+
+        } else if (status !== 'granted') {
+          // 권한 요청
+          const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+          if (newStatus === 'granted') {
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+            const center = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+            setMapCenter(center);
+            setMapZoom(15);
+
+            let nearby = await loadByCenter(center, RADIUS_KM, 15);
+            if (!nearby.length) nearby = await loadByCenter(center, 7, 13);
+            if (nearby.length) setVenues(nearby);
+          } else {
+            console.warn('위치 권한이 거부되었습니다. 기본 위치로 표시합니다.');
+            setMapCenter(FALLBACK_CENTER);
+            setMapZoom(13);
           }
-          if (nearby.length) setVenues(nearby);
         } else {
-          // 권한 거부면 폴백 센터만 세팅(전체 목록은 이미 표시됨)
+          // 권한은 있지만 위치 서비스 꺼짐
+          console.warn('위치 서비스가 꺼져 있습니다. 기본 위치로 표시합니다.');
           setMapCenter(FALLBACK_CENTER);
           setMapZoom(13);
         }
+
       } catch (e) {
         console.error('❌ 초기 로딩 실패:', e);
         setMapCenter(FALLBACK_CENTER);
@@ -256,6 +287,8 @@ export default function MapPage() {
     })();
   }, []);
 
+
+  // 쿼리로 검색 열기
   const searchParam = Array.isArray(params?.search) ? params?.search[0] : params?.search;
   useEffect(() => {
     if (searchParam === '1') setSearchOpen(true);
@@ -317,6 +350,11 @@ export default function MapPage() {
 
   const handleCardPress = (vid: number) => {
     setSelectedCardId(vid);
+    const v = venues.find(x => x.venue_id === vid);
+    if (v?.latitude != null && v?.longitude != null) {
+      setMapCenter({ lat: v.latitude, lng: v.longitude });
+      setMapZoom(13);
+    }
     setTimeout(scrollToWide, 0);
   };
 
@@ -324,12 +362,18 @@ export default function MapPage() {
     const vid = Number(id);
     setSelectedCardId(vid);
 
+    const v = venues.find(x => x.venue_id === vid);
+    if (v?.latitude != null && v?.longitude != null) {
+      setMapCenter({ lat: v.latitude, lng: v.longitude });
+      setMapZoom(16);
+    }
+
     try {
-      const afterISO = toNaiveIso(new Date()); // 현재 시각, Z 없이
+      const afterISO = toNaiveIso(new Date());
       const raw = await fetchUpcomingPerformancesByVenue(vid, afterISO);
       const perfs: Performance[] = (raw ?? []).map(p => ({
         id: p.id ?? 0,
-        title: p.title ?? "",
+        title: p.title ?? '',
         date: p.date ?? undefined,
         time: p.time ?? undefined,
         image_url: p.image_url ?? undefined,
@@ -337,7 +381,7 @@ export default function MapPage() {
       })).slice(0, 1);
 
       setVenues(prev => {
-        const idx = prev.findIndex(v => v.venue_id === vid);
+        const idx = prev.findIndex(vx => vx.venue_id === vid);
         if (idx === -1) return prev;
         const next = [...prev];
         next[idx] = { ...next[idx], upcomingPerformance: perfs };
@@ -346,7 +390,7 @@ export default function MapPage() {
 
       requestAnimationFrame(scrollToWide);
     } catch (e) {
-      console.error("공연 정보 불러오기 실패:", e);
+      console.error('공연 정보 불러오기 실패:', e);
     }
   };
 
@@ -356,16 +400,11 @@ export default function MapPage() {
     try {
       setMapBounds({ ne, sw });
       let enriched = await loadByCenter(center, RADIUS_KM, zoom ?? 15);
-
-      // 결과 없으면 반경 넓혀 재시도(선택)
-      if (!enriched.length) {
-        enriched = await loadByCenter(center, 7, zoom ?? 13);
-      }
-
+      if (!enriched.length) enriched = await loadByCenter(center, 7, zoom ?? 13);
       setVenues(enriched);
       setSelectedCardId(null);
     } catch (e) {
-      console.error("❌ 지도 내 검색 실패:", e);
+      console.error('지도 내 검색 실패:', e);
       Alert.alert('오류', '지도의 범위로 공연장을 불러오지 못했어요.');
     }
   };
@@ -475,7 +514,7 @@ export default function MapPage() {
         )}
 
         <CurrentTimeText />
-        <FlatList
+        <FlatList<RenderItem>
           ref={listRef}
           data={renderData}
           keyExtractor={keyExtractor}

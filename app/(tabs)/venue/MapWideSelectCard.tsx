@@ -1,16 +1,21 @@
+// MapWideSelectCard.tsx
 import React from 'react';
-import { View, Image, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Image, Text, StyleSheet, Pressable } from 'react-native';
 import type { Venue } from '../location';
+import { useRouter } from 'expo-router';
 import Theme from "@/constants/Theme";
+
 type PerfLite = {
   id?: number;
   title?: string;
   date?: string;
-  time?: string;    
+  time?: string;
   image_url?: string;
 };
 
 export default function MapWideSelectCard({ data }: { data: Venue }) {
+  const router = useRouter();
+
   const first: unknown =
     (data as any).upcomingPerformance?.[0] ??
     (data as any).performances?.[0] ??
@@ -27,17 +32,38 @@ export default function MapWideSelectCard({ data }: { data: Venue }) {
   const timeText = perf.time ? formatTimeOnly(perf.time) : '-';
   const address = data.address || '-';
 
+  // ▶ 공연 상세 라우팅용 id (있을 때만 동작)
+  const pid = perf?.id != null ? String(perf.id) : null;
+  const goPerf = () => { if (pid) router.push(`/performance/${pid}`); };
+
+  // ▶ 공연장 상세 라우팅용 id
+  const vid = (data as any).venue_id ?? (data as any).id;
+  const goVenue = () => { if (vid != null) router.push(`/venue/${String(vid)}`); };
+
   return (
     <View style={styles.wrap}>
-      <Image source={poster ? { uri: poster } : require('@/assets/images/modie-sample.png')} style={styles.poster} />
+      {/* (선택) 포스터 눌러도 공연 상세 이동하게 하고 싶으면 Pressable로 감싸기 */}
+      <Pressable onPress={goPerf} disabled={!pid}>
+        <Image
+          source={poster ? { uri: poster } : require('@/assets/images/modie-sample.png')}
+          style={styles.poster}
+        />
+      </Pressable>
+
       <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        {/* 제목 → 공연 상세로 */}
+        <Pressable onPress={goPerf} disabled={!pid}>
+          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        </Pressable>
+
         <Text style={styles.time}>{timeText}</Text>
 
-        <Pressable onPress={() => Alert.alert('이동', `${data.name} 상세로 이동 (라우터 연결 예정)`)} >
+        {/* 장소 이름 → 공연장 상세로 */}
+        <Pressable onPress={goVenue}>
           <Text style={styles.venue} numberOfLines={1}>{data.name} ›</Text>
         </Pressable>
 
+        {/* 주소 로그는 기존 유지 */}
         <Pressable onPress={() => address !== '-' && console.log('📋 copy address:', address)}>
           <Text style={styles.addr} numberOfLines={1}>📍 {address}</Text>
         </Pressable>
