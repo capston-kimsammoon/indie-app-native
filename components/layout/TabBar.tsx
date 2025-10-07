@@ -14,7 +14,7 @@ type Props = { pathname: string };
 const TABS = [
   { label: "홈", route: "/", Icon: IcBarHome },
   { label: "캘린더", route: "/calendar", Icon: IcBarCalendar },
-  { label: "주변 공연", route: "/location", Icon: IcBarLocation },
+  { label: "주변 공연", route: "/nearby", Icon: IcBarLocation },
   { label: "스탬프", route: "/stamp", Icon: IcBarStamp },
   { label: "마이페이지", route: "/mypage", Icon: IcBarMypage },
 ];

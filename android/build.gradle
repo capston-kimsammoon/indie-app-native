@@ -17,6 +17,8 @@ allprojects {
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
+    maven { url 'https://repository.map.naver.com/archive/maven' } // 네이버 지도 SDK 
+    maven { url 'https://devrepo.kakao.com/nexus/content/groups/public/' } // 카카오 SDK
   }
 }
 

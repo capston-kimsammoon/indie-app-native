@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>indieapp</string>
-          <string>kakaob028df37249860db9c9d0587a3541152</string>
+          <string>$(KAKAO_SCHEME_KEY)</string>
         </array>
       </dict>
       <dict>
@@ -95,6 +95,6 @@
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
     <key>ncpKeyId</key>
-    <string>kfo2xff2i9</string>
+    <string>$(NAVER_MAP_KEY)</string>
   </dict>
 </plist>

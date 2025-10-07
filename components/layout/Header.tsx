@@ -106,7 +106,7 @@ export default function Header({ pathname, title, venueName, artistName }: Props
   if (pathname.startsWith('/myreview')) return backTitleSearch('내가 쓴 리뷰');
   if (pathname.startsWith('/mystamp')) return backTitleSearch('스탬프 리스트');
   if (pathname.startsWith('/getstamp')) return backTitleSearch('스탬프 찾기');
-  if (pathname.startsWith('/location')) return backTitleSearch('가까운 공연 찾기');
+  if (pathname.startsWith('/nearby')) return backTitleSearch('가까운 공연 찾기');
   if (pathname.startsWith('/notice')) return backTitleSearch('공지사항');
   if (pathname.startsWith('/support')) return backTitleSearch('고객센터');
   if (pathname.startsWith('/login'))

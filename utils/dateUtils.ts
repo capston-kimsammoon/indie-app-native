@@ -12,6 +12,16 @@ export const getToday = () => {
   return `${month}월 ${date}일`;
 };
 
+export const getNowTime = (): string => {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const period = hours >= 12 ? '오후' : '오전';
+  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+  const paddedMin = String(minutes).padStart(2, '0');
+  return `${period} ${displayHour}시 ${paddedMin}분`;
+};
+
 export function getDateFromDateString(dateStr: string): string {
   let dateObj = new Date(dateStr);
   if (isNaN(dateObj.getTime())) return ""; // 변환 실패
@@ -21,11 +31,9 @@ export function getDateFromDateString(dateStr: string): string {
   return `${year}. ${month}. ${day}.`;
 }
 
-
-
 export function getWeekDayFromDateString(dateStr: string): string {
   const date = new Date(dateStr);
-  const dayIndex = date.getDay(); 
+  const dayIndex = date.getDay();
   return WEEKDAYS[dayIndex];
 }
 
@@ -121,7 +129,7 @@ export function formatRelativeTime(dateInput: string | Date): string {
   // '어제' 처리
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  
+
   if (targetDate >= startOfYesterday && targetDate < startOfToday) {
     return "어제";
   }

@@ -95,6 +95,10 @@ android {
         versionCode 1
         versionName "1.0.0"
 
+        manifestPlaceholders = [
+            NAVER_CLIENT_ID: project.hasProperty("NAVER_CLIENT_ID") ? NAVER_CLIENT_ID : ""
+        ]
+
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
     signingConfigs {

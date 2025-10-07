@@ -1,4 +1,4 @@
-<!doctype html>
+<!-- <!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8"/>
@@ -40,8 +40,12 @@
     function post(x){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(x)); }catch(e){} }
     post({ type:'origin', origin: location.origin, href: location.href });
 
+    // URL 파라미터에서 key 읽기
+    const urlParams = new URLSearchParams(location.search);
+    const ncpKeyId = urlParams.get('ncpKeyId');
+
     var s=document.createElement('script');
-    s.src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=kfo2xff2i9";
+    s.src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${ncpKeyId}";
     s.onload=function(){ post({ type:'maps', ok:true }); init(); };
     s.onerror=function(){ post({ type:'maps', ok:false }); };
     document.head.appendChild(s);
@@ -184,4 +188,4 @@
   })();
   </script>
 </body>
-</html>
+</html> -->

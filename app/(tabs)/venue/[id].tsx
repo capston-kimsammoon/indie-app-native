@@ -1,5 +1,5 @@
 // app/(tabs)/venue/[id].tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -14,7 +14,9 @@ import { useRoute } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import Toast from "react-native-toast-message";
 
-import { NaverMapView, NaverMapMarkerOverlay } from "@mj-studio/react-native-naver-map";
+import { NaverMapView, NaverMapMarkerOverlay, type NaverMapViewRef, } from "@mj-studio/react-native-naver-map";
+import MapView, { Marker } from 'react-native-maps';
+import { SvgXml } from "react-native-svg";
 
 import Theme from "@/constants/Theme";
 import * as Clipboard from "expo-clipboard";
@@ -22,6 +24,7 @@ import PerformanceCard from "@/components/cards/PerformanceCard";
 import ReviewPrevCard from "@/components/cards/ReviewPrevCard";
 import IcClipboard from "@/assets/icons/ic-clipboard.svg";
 import { getDateFromDateString } from "@/utils/dateUtils";
+import IcMarker from "@/assets/icons/ic-marker.svg";
 
 import { fetchVenueDetail } from "@/api/VenueApi";
 import { fetchVenueReviewList } from "@/api/ReviewApi";
@@ -37,6 +40,8 @@ export default function VenueDetailPage() {
 
     const [venue, setVenue] = useState<VenueDetailResponse | null>(null);
     const [reviews, setReviews] = useState<NormalizedReview[]>([]);
+
+    const mapRef = useRef<NaverMapViewRef>(null);
 
     useEffect(() => {
         const loadVenueData = async () => {
@@ -58,6 +63,9 @@ export default function VenueDetailPage() {
 
 
     if (!venue) return <Text>Loading...</Text>;
+
+    const latitude = 37.55;
+    const longitude = 126.923;
 
     return (
         <View style={{ flex: 1 }}>
@@ -90,7 +98,7 @@ export default function VenueDetailPage() {
                         <Text style={styles.label}>주소</Text>
                         <View style={styles.valueWithIcon}>
                             <Text style={styles.value} numberOfLines={1} ellipsizeMode="tail">
-                                {venue.address}
+                                {venue.address?.trim() || "-"}
                             </Text>
                             <Pressable
                                 onPress={async () => {
@@ -112,19 +120,23 @@ export default function VenueDetailPage() {
 
                     {/* 지도 */}
                     <View style={styles.mapContainer}>
-                        <NaverMapView
-                            style={styles.map}
-                            center={{ latitude: venue.latitude, longitude: venue.longitude, zoom: 16 }}
-                            scrollGesturesEnabled={false}
-                            zoomGesturesEnabled={false}
+                        <MapView
+                            style={StyleSheet.absoluteFillObject} // map 전체 채우기
+                            initialRegion={{
+                                latitude: venue.latitude,
+                                longitude: venue.longitude,
+                                latitudeDelta: 0.005,
+                                longitudeDelta: 0.005,
+                            }}
+                            showsUserLocation
+                            showsMyLocationButton
                         >
-                            <NaverMapMarkerOverlay
-                                latitude={venue.latitude}
-                                longitude={venue.longitude}
-                                caption={{ text: venue.name }}
-                            />
-                        </NaverMapView>
+                            <Marker coordinate={{ latitude: venue.latitude, longitude: venue.longitude }}>
+                                <IcMarker width={Theme.iconSizes.md} height={Theme.iconSizes.md} />
+                            </Marker>
+                        </MapView>
                     </View>
+
 
                     {/* 예정 공연 */}
                     <View style={styles.rowColumn}>
@@ -228,15 +240,15 @@ const styles = StyleSheet.create({
     separator: { borderBottomWidth: 1, borderBottomColor: Theme.colors.lightGray, },
     bottomSection: { padding: Theme.spacing.md },
     row: { flexDirection: "row", alignItems: "center", },
-    rowColumn: { marginBottom: Theme.spacing.md },
+    rowColumn: { marginBottom: Theme.spacing.md, },
     label: { width: "25%", fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold, paddingVertical: Theme.spacing.md },
     valueWithIcon: { flex: 1, flexDirection: "row", alignItems: "center" },
     value: { flex: 1, fontSize: Theme.fontSizes.base, color: Theme.colors.black, marginRight: Theme.spacing.sm },
     link: { fontSize: Theme.fontSizes.base, textDecorationLine: "underline" },
     clipboardIcon: { marginLeft: Theme.spacing.xs },
     list: { marginRight: Theme.spacing.md },
-    mapContainer: { height: 200, marginBottom: Theme.spacing.md, overflow: "hidden" },
-    map: { flex: 1 },
+    mapContainer: { height: 200, width: "100%", marginBottom: Theme.spacing.md },
+    map: { ...StyleSheet.absoluteFillObject },
     noPerformanceText: { fontSize: Theme.fontSizes.base, color: Theme.colors.gray, },
 
 });
