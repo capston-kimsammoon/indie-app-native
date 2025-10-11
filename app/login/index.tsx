@@ -7,178 +7,438 @@ import {
   Pressable,
   ActivityIndicator,
   Platform,
-  Image,
   Alert,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Theme from "@/constants/Theme";
-import {
-  loginWithKakaoNative,
-} from "@/api/AuthApi";
+import Constants from "expo-constants";
+import { loginWithKakaoNative, emailLogin } from "@/api/AuthApi";
 import { fetchUserInfo } from "@/api/UserApi";
 import { useAuthStore } from "@/src/state/authStore";
+import * as AppleAuthentication from "expo-apple-authentication";
+import http, { setAccessToken } from "@/api/http";
+import { InteractionManager } from "react-native";
+
+
+type LoadingKey = null | "kakao" | "apple" | "email" | "guest";
+
+const withTimeout = <T,>(p: Promise<T>, ms = 15000) =>
+  Promise.race<T>([
+    p,
+    new Promise<T>((_, rej) =>
+      setTimeout(
+        () =>
+          rej(
+            Object.assign(new Error("apple_signin_timeout"), {
+              code: "apple_signin_timeout",
+            })
+          ),
+        ms
+      )
+    ),
+  ]);
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [loading, setLoading] = useState<null | "kakao" | "guest">(null);
+  const [loading, setLoading] = useState<LoadingKey>(null);
   const setUser = useAuthStore((s) => s.setUser);
+  const [submitting, setSubmitting] = useState(false);
+
+  const emailDisabled = submitting || loading === "kakao" || loading === "apple";
+  const kakaoDisabled = submitting || loading === "email" || loading === "apple";
+  const appleDisabled = submitting || loading === "email" || loading === "kakao";
+
+  const [loginId, setLoginId] = useState("");
+  const [password, setPassword] = useState("");
+  const [autoLogin, setAutoLogin] = useState(true);
+
+  const finishLoginStrict = useCallback(async () => {
+    const tryOnce = async () => {
+      const me = await fetchUserInfo().catch((e: any) => {
+        (e as any)._status = e?.status || e?.response?.status;
+        throw e;
+      });
+      if (!me) throw Object.assign(new Error("no_me"), { _status: 0 });
+      return me;
+    };
+
+    try {
+      const me = await tryOnce();
+      setUser(me);
+      router.replace("/");
+      console.log("[ME] OK", me?.id, me?.email);
+      return;
+    } catch (e: any) {
+      const s = e?._status;
+      if (s === 428 || s === 409) {
+        Alert.alert("회원가입", "가입이 완료되지 않았습니다. 추가 정보를 입력해 주세요.");
+        router.replace("/signup/complete");
+        return;
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, 400));
+    try {
+      const me = await fetchUserInfo();
+      if (!me) throw new Error("no_me_retry");
+      setUser(me);
+      router.replace("/");
+      console.log("[ME] OK after retry", me?.id, me?.email);
+    } catch (e: any) {
+      const s = e?.response?.status;
+      const detail = e?.response?.data?.detail || e?.message || "사용자 정보를 가져오지 못했어요.";
+      console.log("[ME] FAIL after retry", s, detail);
+      if (s === 401 || s === 403) {
+        Alert.alert("로그인", "세션이 유효하지 않습니다. 다시 시도해 주세요.");
+      } else {
+        Alert.alert("로그인", detail);
+      }
+    }
+  }, [router, setUser]);
+
+  const onEmailLogin = useCallback(async () => {
+    if (submitting) return;
+    try {
+      if (!loginId.trim() || !password.trim()) {
+        Alert.alert("로그인", "아이디/비밀번호를 입력해 주세요.");
+        return;
+      }
+      setLoading("email");
+      await emailLogin(loginId.trim(), password.trim());
+      await finishLoginStrict();
+    } catch (e: any) {
+      Alert.alert("이메일 로그인", e?.response?.data?.detail || e?.message || "로그인 실패");
+    } finally {
+      setLoading(null);
+    }
+  }, [loginId, password, finishLoginStrict, submitting]);
 
   const onKakao = useCallback(async () => {
     try {
       setLoading("kakao");
-      if (Platform.OS === "web") {
-        // 웹은 리다이렉트 방식 (페이지 이동)
-        // await loginWithKakaoWebRedirect();
-        return; // 페이지 이동함
-      }
-
-      // 네이티브: 인앱브라우저 → 서버 콜백 → 앱 스킴 복귀
-      await loginWithKakaoNative();
-
-      // 토큰 세팅 이후 사용자 정보 확인
-      const me = await fetchUserInfo().catch(() => null);
-      if (!me) {
-        Alert.alert("로그인 실패", "사용자 정보를 가져오지 못했어요.");
-        return; // 실패 시 조기 종료
-      }
-
-      setUser(me);       // 전역 스토어 갱신
-      router.replace("/"); // 홈 등 원하는 곳으로
+      const { access } = await loginWithKakaoNative();
+      useAuthStore.getState().setToken?.(access);
+      await finishLoginStrict();
     } catch (e: any) {
-      const msg = e?.message || "로그인에 실패했어요.";
-      Alert.alert("카카오 로그인", msg);
+      Alert.alert("카카오 로그인", e?.message || "로그인에 실패했어요.");
     } finally {
       setLoading(null);
     }
-  }, [router, setUser]);
+  }, [finishLoginStrict]);
 
-  const onGuest = useCallback(() => {
-    setLoading("guest");
-    router.replace("/");
+  const SSO_TIMEOUT_MS = 60000; 
+const nextTick = () => new Promise((r) => requestAnimationFrame(() => r(null)));
+
+const withTimeout = <T,>(p: Promise<T>, ms = SSO_TIMEOUT_MS) =>
+  Promise.race<T>([
+    p,
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(Object.assign(new Error("apple_signin_timeout"), { code: "apple_signin_timeout" })), ms)
+    ),
+  ]);
+
+const onApple = useCallback(async () => {
+  const bundleId =
+    (Constants?.expoConfig as any)?.ios?.bundleIdentifier ??
+    (Constants?.expoConfig as any)?.extra?.iosBundleIdentifier ??
+    "unknown";
+  console.log("[APPLE] bundleId =", bundleId);
+  console.log("[APPLE] onApple pressed, loading=", loading, "submitting=", submitting);
+
+  if (Platform.OS !== "ios") {
+    console.log("[APPLE] GUARD non-iOS");
+    Alert.alert("Apple 로그인", "이 기능은 iOS에서만 지원됩니다.");
+    return;
+  }
+  if (submitting) {
+    console.log("[APPLE] GUARD submitting=true → return");
+    return;
+  }
+  if (loading && loading !== "apple") {
+    console.log("[APPLE] GUARD loading=", loading, " → return");
+    return;
+  }
+
+  try {
+    setSubmitting(true);
+    setLoading("apple");
+
+    const available = await AppleAuthentication.isAvailableAsync();
+    console.log("[APPLE] available?", available, "| bundleId =", bundleId);
+    if (!available) {
+      Alert.alert("Apple 로그인", "이 빌드에서는 Apple 로그인을 쓸 수 없어요(Dev Client/권한 확인).");
+      return;
+    }
+
+    console.log("[APPLE] WAIT nextTick");
+    await nextTick();
+    console.log("[APPLE] WAIT interactions");
+    await InteractionManager.runAfterInteractions(() => Promise.resolve());
+
+    console.log("[APPLE] BEFORE signInAsync (about to call)");
+    const startedAt = Date.now();
+
+    const cred = await withTimeout(
+  AppleAuthentication.signInAsync({ requestedScopes: [] }),
+  60000
+);
+console.log('AFTER signInAsync(empty scopes)', cred);
+
+
+    console.log("[APPLE] AFTER signInAsync in", Date.now() - startedAt, "ms");
+    const idToken = (cred as any)?.identityToken as string | undefined;
+    const authCode = cred?.authorizationCode ?? null;
+
+    console.log(
+      "[APPLE] cred summary:",
+      JSON.stringify(
+        {
+          hasIdToken: !!idToken,
+          idTokenLen: idToken?.length || 0,
+          hasAuthCode: !!authCode,
+          email: (cred as any)?.email ?? null,
+          givenName: cred?.fullName?.givenName ?? null,
+          familyName: cred?.fullName?.familyName ?? null,
+          user: (cred as any)?.user ?? null,
+        },
+        null,
+        2
+      )
+    );
+
+    if (!idToken) {
+      throw Object.assign(new Error("apple_auth_no_id_token"), { code: "apple_auth_no_id_token" });
+    }
+
+    console.log("[APPLE] POST /auth/apple/callback");
+    const resp = await http.post("/auth/apple/callback", {
+      identityToken: idToken,
+      authorizationCode: authCode,
+      user: (cred as any).user ?? null,
+      email: (cred as any).email ?? null,
+      givenName: cred.fullName?.givenName ?? null,
+      familyName: cred.fullName?.familyName ?? null,
+      mode: "json",
+      state: "native:" + Math.random().toString(36).slice(2, 10),
+    });
+    const data = resp?.data || {};
+    const token = data?.accessToken || data?.access || data?.token;
+    console.log("[APPLE] callback ok, tokenLen=", token?.length || 0);
+    if (!token) throw new Error("no_access_token_from_callback");
+
+    setAccessToken(token);
+    useAuthStore.getState().setToken?.(token);
+    await finishLoginStrict();
+  } catch (e: any) {
+    console.log("[APPLE] ERROR", e?.code || e?.name, e?.message, e);
+    if (e?.code === "apple_signin_timeout") {
+      Alert.alert(
+        "Apple 로그인",
+        [
+          "로그인 창이 뜨지 않았습니다.",
+          "1) 설정 > Apple ID > 'Apple ID를 사용하는 앱'에서 이 앱 삭제",
+          "2) 기기 재부팅 후 재시도",
+          "3) Dev Client를 usesAppleSignIn: true로 클린 재빌드",
+        ].join("\n")
+      );
+      return;
+    }
+    if (e?.code === "ERR_REQUEST_CANCELED" || e?.code === "ASAuthorizationErrorCanceled") return;
+    if (e?.code === "apple_auth_no_id_token") {
+      Alert.alert(
+        "Apple 로그인",
+        "identityToken이 비었습니다.\n- Capabilities/프로비저닝/실기기 여부 확인\n- 설정 기록 삭제 후 재시도"
+      );
+      return;
+    }
+    Alert.alert("Apple 로그인", e?.response?.data?.detail || e?.message || "로그인 실패");
+  } finally {
     setLoading(null);
-  }, [router]);
+    setSubmitting(false);
+    console.log("[APPLE] finally");
+  }
+}, [loading, submitting, finishLoginStrict]);
+
+  const disabled = !!loading || submitting;
+
+  const onFindId = () => Alert.alert("아이디 찾기", "서비스 준비 중입니다.");
+  const onFindPw = () => Alert.alert("비밀번호 찾기", "서비스 준비 중입니다.");
+  const onSignup = () => router.push("/login/email");
 
   return (
     <View style={styles.container}>
-      <View style={styles.loginContainer}>
-        <View style={styles.header}>
-          <Ionicons name="musical-notes" size={42} color={Theme.colors.themeOrange} />
-          <Text style={styles.title}>modie</Text>
-          <Text style={styles.subtitle}>로그인하고 더 많은 기능을 이용해 보세요</Text>
-        </View>
+      <View style={styles.formArea}>
+        {/* 아이디 */}
+        <TextInput
+          value={loginId}
+          onChangeText={setLoginId}
+          placeholder="모디 아이디 6~12자"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          style={styles.input}
+          editable={!disabled}
+          returnKeyType="next"
+        />
+        {/* 비밀번호 */}
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="영문+숫자+특수문자 6~12자"
+          secureTextEntry
+          style={styles.input}
+          editable={!disabled}
+          returnKeyType="done"
+          onSubmitEditing={onEmailLogin}
+        />
 
-        <View style={{ height: 24 }} />
-
-        {/* 카카오 로그인 버튼 */}
+        {/* 자동 로그인 체크 */}
         <Pressable
-          onPress={onKakao}
-          style={({ pressed }) => [styles.kakaoBtn, pressed && { opacity: 0.8 }]}
-          disabled={loading !== null}
-          accessibilityLabel="카카오로 로그인"
+          onPress={() => setAutoLogin((v) => !v)}
+          style={styles.autoLoginRow}
+          disabled={disabled}
+          accessibilityLabel="자동 로그인"
         >
-          
-          <Text style={styles.kakaoText}>카카오로 계속하기</Text>
-          {loading === "kakao" && <ActivityIndicator style={{ marginLeft: 8 }} />}
+          <Ionicons
+            name={autoLogin ? "checkbox" : "square-outline"}
+            size={22}
+            color={Theme.colors.black}
+          />
+          <Text style={styles.autoLoginText}>자동 로그인</Text>
         </Pressable>
 
-        {/* 구분선 */}
-        <View style={styles.dividerRow}>
-          <View style={styles.divider} />
-          <Text style={styles.dividerText}>또는</Text>
-          <View style={styles.divider} />
+        {/* 로그인 버튼 */}
+        <Pressable
+          onPress={onEmailLogin}
+          style={({ pressed }) => [
+            styles.loginBtn,
+            pressed && { opacity: 0.9 },
+            disabled && { opacity: 0.6 },
+          ]}
+          disabled={disabled}
+          accessibilityLabel="로그인"
+        >
+          <Text style={styles.loginBtnText}>로그인</Text>
+          {loading === "email" && <ActivityIndicator color="#fff" style={{ marginLeft: 8 }} />}
+        </Pressable>
+
+        {/* 하단 링크 */}
+        <View style={styles.linksRow}>
+          <Pressable onPress={onFindId} disabled={disabled}>
+            <Text style={styles.linkText}>아이디 찾기</Text>
+          </Pressable>
+          <Text style={styles.linkDivider}>|</Text>
+          <Pressable onPress={onFindPw} disabled={disabled}>
+            <Text style={styles.linkText}>비밀번호 찾기</Text>
+          </Pressable>
+          <Text style={styles.linkDivider}>|</Text>
+          <Pressable onPress={onSignup} disabled={disabled}>
+            <Text style={styles.linkText}>회원가입</Text>
+          </Pressable>
         </View>
 
-        {/* 게스트로 둘러보기(선택) */}
-        <Pressable
-          onPress={onGuest}
-          style={({ pressed }) => [styles.ghostBtn, pressed && { opacity: 0.7 }]}
-          disabled={loading !== null}
-        >
-          <Text style={styles.ghostText}>로그인 없이 둘러보기</Text>
-          {loading === "guest" && <ActivityIndicator style={{ marginLeft: 8 }} />}
-        </Pressable>
+        {/* 소셜 버튼들 */}
+        <View style={styles.socialRow}>
+          <Pressable
+            onPress={onKakao}
+            disabled={kakaoDisabled || disabled}
+            style={({ pressed }) => [styles.circleBtn, styles.kakaoCircle, pressed && { opacity: 0.85 }]}
+            accessibilityLabel="카카오로 로그인"
+          >
+            <Ionicons name="chatbubble" size={20} color="#181600" />
+            {loading === "kakao" && <ActivityIndicator style={styles.circleSpinner} />}
+          </Pressable>
+
+          {Platform.OS === "ios" && (
+            <Pressable
+              onPress={onApple}
+              disabled={appleDisabled || disabled}
+              style={({ pressed }) => [styles.circleBtn, styles.appleCircle, pressed && { opacity: 0.9 }]}
+              accessibilityLabel="Apple로 로그인"
+            >
+              <Ionicons name="logo-apple" size={22} color="#fff" />
+              {loading === "apple" && <ActivityIndicator color="#fff" style={styles.circleSpinner} />}
+            </Pressable>
+          )}
+        </View>
       </View>
-
-      {/* 약관/정책(선택) */}
-      <Text style={styles.footerText}>
-        계속 진행하면 서비스 이용약관과 개인정보 처리방침에 동의하게 됩니다.
-      </Text>
     </View>
   );
 }
 
 const BTN_H = 52;
+const RADIUS = 54;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Theme.colors.white,
-  },
-  loginContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    width: "100%",
     paddingHorizontal: Theme.spacing.lg,
+    paddingTop: Theme.spacing.xl,
   },
-  header: { alignItems: "center", },
-  title: {
-    fontSize: 28,
-    marginVertical: Theme.spacing.md,
-    fontWeight: Theme.fontWeights.bold as any,
-    color: Theme.colors.black as any,
+  formArea: { marginTop: Theme.spacing.xl },
+  input: {
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Theme.colors.lightGray,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    fontSize: Theme.fontSizes.base,
+    backgroundColor: "#fff",
   },
-  subtitle: {
-    marginBottom: Theme.spacing.md,
-    color: Theme.colors.darkGray as any,
-    fontSize: Theme.fontSizes.sm,
-    textAlign: "center",
+  autoLoginRow: {
+    alignSelf: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
   },
-  kakaoBtn: {
+  autoLoginText: { fontSize: Theme.fontSizes.sm, color: Theme.colors.black },
+  loginBtn: {
     height: BTN_H,
     borderRadius: 12,
-    backgroundColor: "#FEE500",
+    backgroundColor: Theme.colors.themeOrange,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: Theme.spacing.md,
     alignSelf: "stretch",
   },
-  kakaoText: {
-    color: "#181600",
+  loginBtnText: {
+    color: "#fff",
     fontSize: Theme.fontSizes.base,
     fontWeight: Theme.fontWeights.semibold as any,
   },
-  dividerRow: {
+  linksRow: {
     flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
+    gap: 12,
     marginVertical: Theme.spacing.lg,
-    gap: Theme.spacing.sm,
   },
-  divider: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: Theme.colors.lightGray as any,
+  linkText: { color: Theme.colors.gray, fontSize: Theme.fontSizes.sm },
+  linkDivider: { color: Theme.colors.lightGray, fontSize: Theme.fontSizes.sm },
+  socialRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 24,
+    marginTop: Theme.spacing.sm,
   },
-  dividerText: { color: Theme.colors.gray as any, fontSize: Theme.fontSizes.xs },
-  ghostBtn: {
-    height: BTN_H,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.lightGray as any,
+  circleBtn: {
+    width: RADIUS,
+    height: RADIUS,
+    borderRadius: RADIUS / 2,
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "stretch",
+    position: "relative",
   },
-  ghostText: {
-    color: Theme.colors.black as any,
-    fontSize: Theme.fontSizes.base,
+  circleSpinner: {
+    position: "absolute",
+    right: -4,
+    bottom: -4,
   },
-  footerText: {
-    color: Theme.colors.gray as any,
-    fontSize: Theme.fontSizes.xs,
-    textAlign: "center",
-    marginBottom: Theme.spacing.md,
-  },
+  kakaoCircle: { backgroundColor: "#FEE500" },
+  appleCircle: { backgroundColor: "#000" },
 });
