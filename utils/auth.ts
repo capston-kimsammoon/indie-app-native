@@ -1,25 +1,23 @@
 // utils/auth.ts
 import { useAuthStore } from "@/src/state/authStore";
 import { Alert } from "react-native";
+import { decodeJwtPayload } from "./jwt";
 
 export const getUserIdFromToken = (token: string): number | null => {
-  try {
-    const payload = token.split(".")[1];
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/"); // Base64URL -> Base64
-    const decodedJson = JSON.parse(atob(base64));
-    // sub 키에서 숫자 ID 반환
-    return decodedJson.sub ? Number(decodedJson.sub) : null;
-  } catch (err) {
-    console.warn("JWT 디코딩 실패", err);
-    return null;
-  }
+  const payload = decodeJwtPayload<{ sub?: string | number }>(token);
+  if (!payload?.sub) return null;
+
+  // 서버가 sub를 문자열/숫자 섞어서 줄 수 있으므로 보수적으로 파싱
+  const n = typeof payload.sub === "number" ? payload.sub : parseInt(payload.sub, 10);
+  return Number.isFinite(n) ? n : null; // UUID 같은 비숫자 sub면 null
 };
 
-export function requireLogin(action: () => void) {
+export function requireLogin(action: () => void): boolean {
   const { user } = useAuthStore.getState();
   if (!user) {
     Alert.alert("로그인 필요", "로그인 후 이용할 수 있어요.");
-    return;
+    return false;
   }
   action();
+  return true;
 }
