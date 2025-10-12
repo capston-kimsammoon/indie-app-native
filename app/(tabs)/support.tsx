@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     fontSize: Theme.fontSizes.xl,
     fontWeight: Theme.fontWeights.bold,
     color: Theme.colors.black,
-    marginTop: Theme.spacing.md,
+    marginVertical: Theme.spacing.sm,
   },
   paragraph: {
     fontSize: Theme.fontSizes.base,

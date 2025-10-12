@@ -7,8 +7,7 @@ import {
   Pressable,
   ActivityIndicator,
   Platform,
-  Image,
-  Alert,
+  Alert
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -100,10 +99,21 @@ export default function LoginScreen() {
         </Pressable>
       </View>
 
-      {/* 약관/정책(선택) */}
-      <Text style={styles.footerText}>
-        계속 진행하면 서비스 이용약관과 개인정보 처리방침에 동의하게 됩니다.
-      </Text>
+      <View style={styles.bottomBtns}>
+        <Pressable
+          style={({ pressed }) => pressed && { opacity: 0.7 }}
+          onPress={() => router.push("notice")}
+        >
+          <Text style={styles.bottomBtnText}>공지사항</Text>
+        </Pressable>
+        <Text style={styles.verticalDivider}>|</Text>
+        <Pressable
+          style={({ pressed }) =>pressed && { opacity: 0.7 }}
+          onPress={() => router.push("/support")}
+        >
+          <Text style={styles.bottomBtnText}>고객센터</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -175,10 +185,20 @@ const styles = StyleSheet.create({
     color: Theme.colors.black as any,
     fontSize: Theme.fontSizes.base,
   },
-  footerText: {
-    color: Theme.colors.gray as any,
-    fontSize: Theme.fontSizes.xs,
-    textAlign: "center",
+  bottomBtns: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Theme.spacing.md,
     marginBottom: Theme.spacing.md,
+  },
+  bottomBtnText: {
+    fontSize: Theme.fontSizes.sm,
+    color: Theme.colors.black,
+    fontWeight: Theme.fontWeights.regular,
+  },
+  verticalDivider: {
+    color: Theme.colors.lightGray,
+    textAlign: "center",
   },
 });

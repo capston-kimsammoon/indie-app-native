@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     fontWeight: Theme.fontWeights.bold,
     color: Theme.colors.black,
     paddingHorizontal: Theme.spacing.md,
-    marginTop: Theme.spacing.md,
+    marginVertical: Theme.spacing.sm,
   },
   faqItem: {
     borderBottomWidth: 1,

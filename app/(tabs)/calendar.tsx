@@ -97,9 +97,8 @@ export default function TabCalendarScreen() {
     acc[date] = {
       customStyles: {
         container: {
-          borderWidth: 1,
-          borderColor: Theme.colors.themeOrange,
           borderRadius: 20,
+          backgroundColor: Theme.colors.themeOrange + "20",
           width: 36,
           height: 36,
           justifyContent: "center",

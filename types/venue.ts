@@ -15,6 +15,7 @@ export type VenueListResponse = {
 export interface VenueDetailResponse {
   id: number | string;
   name: string;
+  description: string;
   image_url: string;
   instagram_account?: string;
   address: string;

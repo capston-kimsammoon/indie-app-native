@@ -107,8 +107,8 @@ export default function Header({ pathname, title, venueName, artistName }: Props
   if (pathname.startsWith('/mystamp')) return backTitleSearch('스탬프 리스트');
   if (pathname.startsWith('/getstamp')) return backTitleSearch('스탬프 찾기');
   if (pathname.startsWith('/nearby')) return backTitleSearch('가까운 공연 찾기');
-  if (pathname.startsWith('/notice')) return backTitleSearch('공지사항');
-  if (pathname.startsWith('/support')) return backTitleSearch('고객센터');
+  if (pathname.startsWith('/notice')) return backTitleSearch('');
+  if (pathname.startsWith('/support')) return backTitleSearch('');
   if (pathname.startsWith('/login'))
     return renderHeaderContent(
       <Pressable style={styles.left}>
@@ -117,16 +117,16 @@ export default function Header({ pathname, title, venueName, artistName }: Props
       <View style={styles.right} />
     );
 
-  if (pathname.startsWith('/terms/service')) return backTitleSearch('고객센터');
-  if (pathname.startsWith('/terms/location')) return backTitleSearch('고객센터');
-  if (pathname.startsWith('/terms/privacy')) return backTitleSearch('고객센터');
+  if (pathname.startsWith('/terms/service')) return backTitleSearch('');
+  if (pathname.startsWith('/terms/location')) return backTitleSearch('');
+  if (pathname.startsWith('/terms/privacy')) return backTitleSearch('');
 
   // 기본 헤더
   return renderHeaderContent(
     <Pressable style={styles.left}>
       <IcArrowLeft width={headerIconSize} height={headerIconSize} />
     </Pressable>,
-    <Text style={styles.title}>{title ?? '기본'}</Text>,
+    <Text style={styles.title}>{title ?? ''}</Text>,
     <View style={styles.right}>
       {pathname.startsWith('/performance') && (
         <IcHeaderSearch width={headerIconSize} height={headerIconSize} />

@@ -137,3 +137,10 @@ export async function unlikeReview(reviewId: number) {
   if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
   return res.data;
 }
+
+// 8. 리뷰 신고
+export async function reportReview(reviewId: number, reason?: string) {
+  const res = await http.post(`/venue/review/${reviewId}/report`, { reason });
+  if (res.status < 200 || res.status >= 300) throw new Error("리뷰 신고 실패");
+  return res.data;
+}

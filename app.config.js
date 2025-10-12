@@ -15,7 +15,11 @@ export default {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff",
       },
-      permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      permissions: [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "INTERNET"
+      ],
       edgeToEdgeEnabled: true,
       config: {
         googleMaps: {
@@ -80,6 +84,17 @@ export default {
     plugins: [
       "expo-asset",
       "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          android: {
+            extraMavenRepos: [
+              "https://repository.map.naver.com/archive/maven",
+              "https://devrepo.kakao.com/nexus/content/groups/public/"
+            ]
+          }
+        }
+      ]
     ],
 
     extra: {
@@ -87,6 +102,7 @@ export default {
       EXPO_PUBLIC_API_BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL,
       EXPO_PUBLIC_KAKAO_REDIRECT_URI: process.env.EXPO_PUBLIC_KAKAO_REDIRECT_URI,
       kakaoSchemeKey: process.env.KAKAO_SCHEME_KEY,
+      naverMapKey: process.env.EXPO_PUBLIC_NAVER_MAP_KEY,
     },
   },
 };

@@ -17,11 +17,13 @@ import {
   likeReview,
   unlikeReview,
   deleteReview,
+  reportReview
 } from "@/api/ReviewApi";
 import { ReviewItem } from "@/types/review";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { fetchUserInfo } from "@/api/UserApi";
 import { requireLogin } from "@/utils/auth";
+import ReportModal from "@/components/filters/ReportModal";
 
 type RouteParams = { id: string };
 
@@ -39,6 +41,9 @@ export default function VenueReviewsPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
+
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reviewToReport, setReviewToReport] = useState<ReviewItem | null>(null);
 
   // ── 로그인 유저 정보 가져오기 ──
   useEffect(() => {
@@ -71,7 +76,6 @@ export default function VenueReviewsPage() {
 
       if (replace) setReviews(mappedItems);
       else setReviews((prev) => [...prev, ...mappedItems]);
-      console.log("reviews: ", reviews);
       setTotal(data.total ?? mappedItems.length);
       setHasMore(mappedItems.length > 0);
       setPage(pageNum);
@@ -143,10 +147,40 @@ export default function VenueReviewsPage() {
     ]);
   };
 
+  const onReportPress = (review: ReviewItem) => {
+    setReviewToReport(review);
+    setReportModalVisible(true);
+  };
+
+  const handleReportSubmit = async (type: ReportType) => {
+    if (!reviewToReport) return;
+    try {
+      const res = await reportReview(reviewToReport.id, type); 
+      // 백엔드에서 이미 신고된 경우 400/409 같은 상태 코드 반환한다고 가정
+      if (res?.alreadyReported) {
+        alert("이미 신고한 리뷰입니다.");
+      } else {
+        alert("신고가 접수되었습니다.");
+      }
+    } catch (e: any) {
+      if (e.response?.status === 409) {
+        alert("이미 신고한 리뷰입니다.");
+      } else {
+        alert("신고에 실패했습니다.");
+        console.error(e);
+      }
+    } finally {
+      setReportModalVisible(false);
+      setReviewToReport(null);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: Theme.colors.white }}>
       <View style={styles.header}>
-        <Text style={styles.totalText}>총 {total}개</Text>
+        <Text style={styles.totalText}>
+          All <Text style={styles.totalNum}>{total}</Text>
+        </Text>
         <TouchableOpacity onPress={() => requireLogin(() => router.push(`/venue/${id}/review/write`))}>
           <Text style={styles.writeButtonText}>리뷰 작성</Text>
         </TouchableOpacity>
@@ -159,6 +193,7 @@ export default function VenueReviewsPage() {
             item={item}
             onDelete={handleDeleteReview}
             onToggleLike={handleLikeToggle}
+            onReport={() => onReportPress(item)}
             showLike={true}
             showVenueInfo={false}
           />
@@ -183,6 +218,11 @@ export default function VenueReviewsPage() {
         }
         style={{ paddingHorizontal: Theme.spacing.md }}
       />
+      <ReportModal
+        visible={reportModalVisible}
+        onCancel={() => setReportModalVisible(false)}
+        onSubmit={handleReportSubmit}
+      />
     </View>
   );
 }
@@ -196,10 +236,8 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.white,
     marginVertical: Theme.spacing.sm,
   },
-  totalText: {
-    fontSize: Theme.fontSizes.base,
-    fontWeight: Theme.fontWeights.medium as any,
-  },
+  totalText: { color: Theme.colors.darkGray, fontSize: Theme.fontSizes.sm, fontWeight: Theme.fontWeights.bold },
+  totalNum: { color: Theme.colors.themeOrange, fontWeight: Theme.fontWeights.bold },
   writeButtonText: {
     backgroundColor: Theme.colors.themeOrange,
     color: Theme.colors.white,

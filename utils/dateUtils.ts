@@ -14,12 +14,26 @@ export const getToday = () => {
 
 export const getNowTime = (): string => {
   const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const period = hours >= 12 ? '오후' : '오전';
-  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
-  const paddedMin = String(minutes).padStart(2, '0');
-  return `${period} ${displayHour}시 ${paddedMin}분`;
+
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    hour12: true,
+    hour: "numeric",
+    minute: "numeric",
+    timeZone: "Asia/Seoul",
+  }).formatToParts(now);
+
+  let hours = 0;
+  let minutes = 0;
+  let period = "오전";
+
+  for (const part of parts) {
+    if (part.type === "hour") hours = parseInt(part.value, 10);
+    if (part.type === "minute") minutes = parseInt(part.value, 10);
+    if (part.type === "dayPeriod") period = part.value;
+  }
+
+  const paddedMin = String(minutes).padStart(2, "0");
+  return `${period} ${hours}시 ${paddedMin}분`;
 };
 
 export function getDateFromDateString(dateStr: string): string {

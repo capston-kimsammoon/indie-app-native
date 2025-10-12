@@ -1,4 +1,4 @@
-import { View, Text, Image, Pressable, StyleSheet } from "react-native";
+import { View, Text, Image, Pressable, StyleSheet, TouchableOpacity } from "react-native";
 import Theme from "@/constants/Theme";
 import IcHeartFilled from "@/assets/icons/ic-heart-filled.svg";
 import IcHeartOutline from "@/assets/icons/ic-heart-outline.svg";
@@ -21,13 +21,13 @@ export default function ArtistCard({
 }: ArtistCardProps) {
     return (
         <View style={styles.card}>
-            <Pressable
+            <TouchableOpacity
                 onPress={onPress}
                 style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
             >
                 <Image source={profileUrl ? { uri: profileUrl } : require('@/assets/images/modie-sample.png')} style={styles.image} />
                 <Text style={styles.name}>{name}</Text>
-            </Pressable>
+            </TouchableOpacity>
 
             <Pressable style={styles.heartButton} onPress={onToggleLike}>
                 {liked ? 

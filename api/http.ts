@@ -28,7 +28,6 @@ let ACCESS_TOKEN: string | null = null;
 
 export function setAccessToken(token: string | null) {
   ACCESS_TOKEN = token;
-
   if (ACCESS_TOKEN) {
     http.defaults.headers.common.Authorization = `Bearer ${ACCESS_TOKEN}`;
     if (Platform.OS !== "web") {
@@ -46,7 +45,7 @@ export const clearAccessToken = () => setAccessToken(null);
 // 요청 인터셉터
 http.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
   cfg.headers = { ...(cfg.headers || {}), "X-Client": "rn" };
-  console.log("HTTP REQ headers:", cfg.headers);
+  // console.log("HTTP REQ headers:", cfg.headers);
   
   if (ACCESS_TOKEN) {
     cfg.headers.Authorization = `Bearer ${ACCESS_TOKEN}`;
@@ -63,6 +62,13 @@ http.interceptors.response.use(
   (res) => res,
   (err: AxiosError<any>) => {
     const status = err.response?.status;
+    if (status === 401 || status === 403) {
+      // Axios 기본 에러 로그 막기
+      if (__DEV__) {
+        console.log("[INFO] Unauthenticated, skipping console.error");
+      }
+      return Promise.reject(err);
+    }
     const method = (err.config?.method || "GET").toUpperCase();
     const url = err.config?.url || "(unknown)";
     console.error(`[HTTP ${status ?? "ERR"}] ${method} ${url}`, err.response?.data ?? err.message);

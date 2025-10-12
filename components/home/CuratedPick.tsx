@@ -20,11 +20,15 @@ export default function CuratedPick() {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.title}>김삼문 pick!</Text>
-      <MagazineCard
-          item={pickItem}
-          onPress={() => router.push(`/magazine/${pickItem.id}`)}
-      />
+      {pickItem && (
+        <>
+          <Text style={styles.title}>모디 추천 공연</Text>
+          <MagazineCard
+              item={pickItem}
+              onPress={() => router.push(`/magazine/${pickItem.id}`)}
+          />
+        </>
+      )}
     </View>
   );
 }

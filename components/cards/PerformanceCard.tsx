@@ -175,6 +175,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
     marginRight: Theme.spacing.md,
+    alignContent: "center",
+    alignItems: "center",
   },
   listCard: {
     flexDirection: "row",
@@ -207,6 +209,7 @@ const styles = StyleSheet.create({
   },
   posterUpcoming: {
     height: "100%",
+    aspectRatio: 3 / 4,
   },
   posterList: {
     marginRight: Theme.spacing.md,
@@ -231,7 +234,6 @@ const styles = StyleSheet.create({
   infoUpcomingTicket: {
     flex: 1,
     flexDirection: "column",
-    justifyContent: "space-between",
   },
   infoList: {
     flex: 1,
