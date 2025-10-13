@@ -4,11 +4,16 @@ import * as Linking from "expo-linking";
 import { Platform } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import http, { setAccessToken } from "./http";
+import {
+  KakaoLoginInitResponse,
+  WebTokenPair,
+  AppleLoginResult,
+  EmailAuthResponse,
+} from "@/types/auth";
 
 WebBrowser.maybeCompleteAuthSession?.();
 
 const RETURN_URL = Linking.createURL("auth/callback");
-
 
 function parseQuery(url: string): Record<string, string> {
   try {
@@ -69,11 +74,12 @@ function withTimeout<T>(p: Promise<T>, ms = 60000) {
   ]);
 }
 
-export async function loginWithKakaoNative(): Promise<{ access: string; refresh?: string }> {
-  const { data } = await http.get<{ loginUrl: string; state?: string }>(
-    "/auth/kakao/login",
-    { params: { client: "native", returnUrl: RETURN_URL } }
-  );
+/* ========================= 카카오 ========================= */
+export async function loginWithKakaoNative(): Promise<WebTokenPair> {
+  const { data } = await http.get<KakaoLoginInitResponse>("/auth/kakao/login", {
+    params: { client: "native", returnUrl: RETURN_URL },
+  });
+
   const loginUrl = data?.loginUrl;
   if (!loginUrl) throw new Error("kakao_login_url_missing");
   console.log("[KAKAO] loginUrl =", loginUrl, " state =", data?.state);
@@ -115,25 +121,40 @@ export async function loginWithKakaoNative(): Promise<{ access: string; refresh?
   return { access, refresh: refresh || undefined };
 }
 
-export async function emailSignup(email: string, password: string, nickname?: string) {
-  const { data } = await http.post("/auth/email/signup", { email, password, nickname });
+/* ========================= 이메일 ========================= */
+export async function emailSignup(
+  email: string,
+  password: string,
+  nickname?: string
+): Promise<EmailAuthResponse> {
+  const { data } = await http.post<EmailAuthResponse>("/auth/email/signup", {
+    email,
+    password,
+    nickname,
+  });
   const token = data?.accessToken || data?.access;
   if (token) setAccessToken(token);
   return data;
 }
 
-export async function emailLogin(email: string, password: string) {
-  const { data } = await http.post("/auth/email/login", { email, password });
+export async function emailLogin(
+  email: string,
+  password: string
+): Promise<EmailAuthResponse> {
+  const { data } = await http.post<EmailAuthResponse>("/auth/email/login", {
+    email,
+    password,
+  });
   const token = data?.accessToken || data?.access;
   if (token) setAccessToken(token);
   return data;
 }
 
-export async function loginWithAppleWeb(): Promise<{ access: string; refresh?: string }> {
-  const { data } = await http.get<{ loginUrl: string }>(
-    "/auth/apple/login",
-    { params: { client: "web", returnUrl: RETURN_URL } }
-  );
+/* ========================= 애플(Web) ========================= */
+export async function loginWithAppleWeb(): Promise<WebTokenPair> {
+  const { data } = await http.get<{ loginUrl: string }>("/auth/apple/login", {
+    params: { client: "web", returnUrl: RETURN_URL },
+  });
 
   const result = await WebBrowser.openAuthSessionAsync(data.loginUrl, RETURN_URL);
   let urlFromAuth: string | null = result.type === "success" ? result.url : null;
@@ -155,7 +176,34 @@ export async function loginWithAppleWeb(): Promise<{ access: string; refresh?: s
   return { access, refresh };
 }
 
-export async function loginWithApple(): Promise<{ token: string; user?: any; raw?: any }> {
+/* ========================= 애플(Native) ========================= */
+
+
+type AppleCallbackNeeds = {
+  nickname?: boolean;
+  terms?: boolean;
+  [k: string]: any;
+};
+
+async function postAppleCallback(payload: any) {
+  try {
+    const { data, status } = await http.post("/auth/apple/callback", payload);
+    return { data, status };
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const data = e?.response?.data;
+    if (status === 428) return { data, status, signupRequired: true };
+    if (status === 409) {
+      throw Object.assign(new Error("삭제된(탈퇴) 계정입니다."), { code: "DELETED_ACCOUNT", detail: data });
+    }
+    if (status === 401) {
+      throw Object.assign(new Error("애플 인증 토큰이 유효하지 않습니다."), { code: "APPLE_AUTH_INVALID", detail: data });
+    }
+    throw e;
+  }
+}
+
+export async function loginWithApple(): Promise<AppleLoginResult> {
   if (Platform.OS !== "ios") {
     throw new Error("Apple 로그인은 iOS에서만 지원됩니다.");
   }
@@ -163,7 +211,7 @@ export async function loginWithApple(): Promise<{ token: string; user?: any; raw
   const available = await AppleAuthentication.isAvailableAsync();
   if (!available) {
     const web = await loginWithAppleWeb();
-    return { token: web.access, user: null, raw: { via: "web" } };
+    return { token: web.access, user: null, raw: { via: "web" }, firstAppleAuth: false };
   }
 
   try {
@@ -180,10 +228,16 @@ export async function loginWithApple(): Promise<{ token: string; user?: any; raw
 
     const idToken = (cred as any)?.identityToken as string | undefined;
     const authCode = cred?.authorizationCode ?? null;
-    console.log("[APPLE] idTokenLen=", idToken?.length || 0, "hasAuthCode=", !!authCode);
-    if (!idToken) throw Object.assign(new Error("apple_auth_no_id_token"), { code: "apple_auth_no_id_token" });
+    if (!idToken) {
+      throw Object.assign(new Error("apple_auth_no_id_token"), { code: "apple_auth_no_id_token" });
+    }
 
-    const { data } = await http.post("/auth/apple/callback", {
+    const firstAppleAuth =
+      !!(cred as any)?.email || !!cred.fullName?.givenName || !!cred.fullName?.familyName;
+
+    const baseState = "native:" + Math.random().toString(36).slice(2, 10);
+
+    const baseBody = {
       identityToken: idToken,
       authorizationCode: authCode,
       user: (cred as any).user ?? null,
@@ -191,25 +245,50 @@ export async function loginWithApple(): Promise<{ token: string; user?: any; raw
       givenName: cred.fullName?.givenName ?? null,
       familyName: cred.fullName?.familyName ?? null,
       mode: "json",
-      state: "native:" + Math.random().toString(36).slice(2, 10),
-    });
+      state: baseState,
+    };
 
+    let res = await postAppleCallback(baseBody);
+
+    if (res.signupRequired) {
+      const signupBody = { ...baseBody, mode: "signup", state: `${baseBody.state};signup` };
+      res = await postAppleCallback(signupBody);
+    }
+
+    const data = res.data || {};
     const token = data?.accessToken || data?.access || data?.token;
-    console.log("[APPLE] resp keys:", Object.keys(data || {}), "accessToken len:", token?.length || 0);
     if (!token) throw new Error("no_access_token_from_callback");
 
     setAccessToken(token);
-    return { token, user: data?.user ?? null, raw: data };
+
+    const isNew = !!(data?.is_new || data?.needs);
+    const needs = (data?.needs ?? {}) as AppleCallbackNeeds;
+
+    return {
+      token,
+      user: data?.user ?? null,
+      raw: data,
+      isNew,
+      needs,
+      firstAppleAuth,
+    };
   } catch (e: any) {
     const code = e?.code || e?.name;
+
     if (code === "ERR_REQUEST_CANCELED" || code === "ASAuthorizationErrorCanceled") {
       throw Object.assign(new Error("사용자가 로그인을 취소했어요."), { code: "ASAuthorizationErrorCanceled" });
     }
+
     if (code === "apple_signin_timeout" || code === "apple_auth_no_id_token") {
       const web = await loginWithAppleWeb();
       setAccessToken(web.access);
-      return { token: web.access, user: null, raw: { via: "web" } };
+      return { token: web.access, user: null, raw: { via: "web" }, firstAppleAuth: false };
     }
+
+    if (code === "DELETED_ACCOUNT") {
+      throw e;
+    }
+
     throw e;
   }
 }
