@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 
 // 요일 한글 매핑
 const WEEKDAYS = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
+const WEEKDAYS_SHORT = ["일", "월", "화", "수", "목", "금", "토"];
 
 export const getToday = () => {
   const today = new Date();
@@ -49,6 +50,17 @@ export function getWeekDayFromDateString(dateStr: string): string {
   const date = new Date(dateStr);
   const dayIndex = date.getDay();
   return WEEKDAYS[dayIndex];
+}
+
+export function formatDateWithShortDay(dateInput: string | Date): string {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  if (isNaN(date.getTime())) return "";
+  
+  const month = date.getMonth() + 1; // 0-based -> 1-based
+  const day = date.getDate();
+  const dayOfWeek = WEEKDAYS_SHORT[date.getDay()];
+  
+  return `${month}월 ${day}일(${dayOfWeek})`;
 }
 
 export const formatDate = (dateInput: string | Date) => {

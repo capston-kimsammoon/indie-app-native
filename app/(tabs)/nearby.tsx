@@ -13,6 +13,7 @@ import {
   Platform,
   Linking,
 } from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
 import NaverMapWebView from "@/components/maps/NaverMapWebView";
 import PerformanceCard from "@/components/cards/PerformanceCard";
 import SelectedPerformanceCard from "@/components/cards/SelectedPerformanceCard";
@@ -25,8 +26,7 @@ import { NearbyPerformanceResponse, VenuePerformanceItem, PerformanceBoundsReque
 import * as Location from "expo-location";
 import { useAuthStore } from "@/src/state/authStore";
 
-const SCREEN_HEIGHT = Dimensions.get("window").height;
-const MAP_HEIGHT = SCREEN_HEIGHT * 0.4;
+const MAP_HEIGHT = 300; // 고정 높이로 변경
 
 const makeMarkerSVG = (size: number) => {
   return `
@@ -55,6 +55,7 @@ const makeMarkerSVG = (size: number) => {
 };
 
 export default function TabNearbyScreen() {
+  const router = useRouter();
   const listRef = useRef<FlatList>(null);
 
   const [performances, setPerformances] = useState<NearbyPerformanceResponse[]>([]);
@@ -70,6 +71,16 @@ export default function TabNearbyScreen() {
 
   const { user } = useAuthStore();
   const [localLocationEnabled, setLocalLocationEnabled] = useState(true);
+
+  // 화면 포커스될 때마다 사용자 정보 새로고침하여 위치 권한 반영
+  useFocusEffect(
+    useCallback(() => {
+      // 마이페이지에서 돌아왔을 때 위치 권한이 켜져있으면 자동으로 내 위치로 이동
+      if (user?.location_enabled && !myLocation) {
+        goToMyLocation();
+      }
+    }, [user?.location_enabled])
+  );
 
   // 초기 위치 및 공연 조회 - 더 빠른 로딩
   useEffect(() => {
@@ -216,14 +227,9 @@ export default function TabNearbyScreen() {
           [
             { text: "계속 기본 위치", style: "cancel" },
             {
-              text: "켜기",
+              text: "마이페이지로 이동",
               onPress: () => {
-                if (user) {
-                  Alert.alert("알림", "마이페이지에서 위치 사용을 켜주세요.");
-                } else {
-                  setLocalLocationEnabled(true);
-                  Alert.alert("알림", "위치 사용이 활성화되었습니다.");
-                }
+                router.push("/mypage");
               }
             }
           ]
@@ -364,8 +370,12 @@ export default function TabNearbyScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.listContainer}>
+      {/* "~이후 공연" 텍스트를 지도 바로 아래 독립적으로 배치 */}
+      <View style={styles.headerContainer}>
         <Text style={styles.nowText}>{nowTime} 이후 공연</Text>
+      </View>
+
+      <View style={styles.listContainer}>
         {loading ? (
           <ActivityIndicator size="large" color={Theme.colors.themeOrange} style={{ marginTop: 20 }} />
         ) : performances.length === 0 ? (
@@ -420,7 +430,16 @@ export default function TabNearbyScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.white },
-  mapContainer: { height: "45%" },
+  mapContainer: { 
+    height: MAP_HEIGHT,  // 고정 높이 사용
+  },
+  headerContainer: {
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    backgroundColor: Theme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.lightGray,
+  },
   emptyText: {
     textAlign: "center",
     padding: Theme.spacing.lg,
@@ -465,13 +484,13 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flex: 1,
-    padding: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.sm,
   },
   nowText: {
     fontSize: Theme.fontSizes.base,
     fontWeight: Theme.fontWeights.semibold,
     color: Theme.colors.black,
-    marginBottom: Theme.spacing.sm,
   },
   loadingOverlay: {
     position: "absolute",

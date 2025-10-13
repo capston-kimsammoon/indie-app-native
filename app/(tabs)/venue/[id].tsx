@@ -288,7 +288,8 @@ const styles = StyleSheet.create({
     label: { 
         width: "25%", 
         fontSize: Theme.fontSizes.base, 
-        fontWeight: Theme.fontWeights.semibold, 
+        fontWeight: Theme.fontWeights.semibold,
+        marginVertical: Theme.spacing.sm 
     },
     valueWithIcon: { flex: 1, flexDirection: "row", alignItems: "center" },
     value: { 

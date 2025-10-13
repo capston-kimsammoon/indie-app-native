@@ -6,6 +6,8 @@ import type { NormalizedReview } from '@/types/review';
 import ReviewCard from '@/components/cards/ReviewCard';
 import Theme from '@/constants/Theme';
 import { ReviewItem } from "@/types/review";
+import ReportModal from '@/components/modal/ReportModal';
+import { requireLogin } from "@/utils/auth";
 
 export default function AllReviewsPage() {
   const [userId, setUserId] = useState<number | null>(null);
@@ -34,7 +36,7 @@ export default function AllReviewsPage() {
   }, []);
 
   const loadReviews = useCallback(async (nextPage = 1, append = false) => {
-    if (!authChecked) return;
+    if (!authChecked) return null;
 
     try {
       if (!append && nextPage === 1) setRefreshing(true);
@@ -66,12 +68,14 @@ export default function AllReviewsPage() {
   }, [authChecked, userId]);
 
   useEffect(() => {
-    loadReviews(1, false);
-  }, [loadReviews]);
+    if (authChecked) loadReviews(1, false);
+  }, [authChecked]);
 
   const onReportPress = (review: ReviewItem) => {
-    setReviewToReport(review);
-    setReportModalVisible(true);
+    requireLogin(() => {
+      setReviewToReport(review);
+      setReportModalVisible(true);
+    });
   };
 
   const handleReportSubmit = async (type: ReportType) => {
@@ -117,7 +121,7 @@ export default function AllReviewsPage() {
     ]);
   };
 
-  if (loading && reviews.length === 0 && !refreshing) {
+  if (loading && !refreshing && reviews.length === 0) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Theme.colors.themeOrange} />
@@ -159,6 +163,11 @@ export default function AllReviewsPage() {
             <ActivityIndicator style={{ margin: Theme.spacing.sm }} />
           ) : null
         }
+      />
+      <ReportModal
+        visible={reportModalVisible}
+        onCancel={() => setReportModalVisible(false)}
+        onSubmit={handleReportSubmit}
       />
     </View>
   );

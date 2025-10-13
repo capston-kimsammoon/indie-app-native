@@ -1,10 +1,11 @@
 // api/AuthApi.ts
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import { Platform } from "react-native";
 import http, { setAccessToken, getAccessToken } from "./http";
+import * as AppleAuthentication from "expo-apple-authentication";
 
-// 앱 스킴과 콜백 경로
-const NATIVE_CALLBACK = "indieapp://auth/callback";
+const RETURN_URL = Linking.createURL("auth/callback");
 
 // URL 쿼리 파싱
 function parseQuery(url: string): Record<string, string> {
@@ -16,10 +17,21 @@ function parseQuery(url: string): Record<string, string> {
       const v = qp[k];
       out[k] = typeof v === "string" ? v : Array.isArray(v) ? String(v[0]) : String(v);
     });
+    if (!Object.keys(out).length) {
+      const hash = url.split("#")[1] || "";
+      if (hash) {
+        const hq = Object.fromEntries(new URLSearchParams(hash) as any);
+        Object.assign(out, hq);
+      }
+    }
+    if (!Object.keys(out).length) {
+      const q = url.split("?")[1] || "";
+      if (q) Object.assign(out, Object.fromEntries(new URLSearchParams(q) as any));
+    }
     return out;
   } catch {
-    const q = url.split("?")[1] || "";
-    return Object.fromEntries(new URLSearchParams(q) as any);
+    const both = url.split("#")[1] || url.split("?")[1] || "";
+    return both ? (Object.fromEntries(new URLSearchParams(both) as any) as any) : {};
   }
 }
 
@@ -43,52 +55,218 @@ function waitForDeepLinkOnce(timeoutMs = 5000): Promise<string | null> {
   });
 }
 
+function withTimeout<T>(p: Promise<T>, ms = 60000) {
+  return Promise.race<T>([
+    p,
+    new Promise<T>((_, rej) =>
+      setTimeout(
+        () =>
+          rej(Object.assign(new Error("apple_signin_timeout"), { code: "apple_signin_timeout" })),
+        ms
+      )
+    ),
+  ]);
+}
+
 /** 네이티브 카카오 로그인 */
 export async function loginWithKakaoNative(): Promise<{ access: string; refresh?: string }> {
+  // returnUrl 파라미터 제거 - 백엔드 설정 사용
+  const { data } = await http.get<{ loginUrl: string; state?: string }>(
+    "/auth/kakao/login",
+    { params: { client: "native" } }
+  );
+  
+  const loginUrl = data?.loginUrl;
+  if (!loginUrl) throw new Error("kakao_login_url_missing");
+  console.log("[KAKAO] loginUrl =", loginUrl);
 
-  // 1) 백엔드에서 로그인 URL 받아오기
-  const { data } = await http.get<{ loginUrl: string; state?: string }>("/auth/kakao/login", {
-    params: { client: "native" }, // native 모드
-  });
-
-
-  // 2) WebBrowser로 로그인
-  const result = await WebBrowser.openAuthSessionAsync(data.loginUrl, NATIVE_CALLBACK);
+  const DEEP_LINK = "indieapp://auth/callback";
+  
+  const result = await WebBrowser.openAuthSessionAsync(loginUrl, DEEP_LINK);
+  console.log("[AUTH RESULT]", result);
 
   let urlFromAuth: string | null = result.type === "success" ? result.url : null;
 
-  // fallback: deep link 기다리기
   if (!urlFromAuth) {
-    urlFromAuth = await waitForDeepLinkOnce(5000);
+    console.log("[AUTH] waiting deep link…");
+    urlFromAuth = await waitForDeepLinkOnce(8000);
+    console.log("[AUTH] deep link result:", urlFromAuth);
   }
+  if (!urlFromAuth) throw new Error("login_cancelled");
 
-  if (!urlFromAuth) {
-    console.error("[AUTH] no callback URL received");
-    throw new Error("login_cancelled");
-  }
-
-  // 3) 쿼리 파싱
   const q = parseQuery(urlFromAuth);
+  if (q.error) throw new Error(q.error_description || q.error);
+  console.log("[KAKAO] parsed =", q);
 
-  if (q.error) {
-    console.error("[AUTH] error in callback", q.error, q.error_description);
-    throw new Error(q.error_description || q.error);
+  const access = q.access || q.accessToken || q.jwt;
+  const refresh = q.refresh || q.refreshToken;
+
+  if (!access) throw new Error("no_access_token_from_callback");
+
+  setAccessToken(access);
+  return { access, refresh: refresh || undefined };
+}
+
+export async function emailSignup(email: string, password: string, nickname?: string) {
+  const { data } = await http.post("/auth/email/signup", { email, password, nickname });
+  const token = data?.accessToken || data?.access;
+  if (token) setAccessToken(token);
+  return data;
+}
+
+export async function emailLogin(loginId: string, password: string) {
+  const { data } = await http.post("/auth/email/login", {
+    login_id: loginId,
+    password,
+  });
+  const token = data?.accessToken || data?.access;
+  if (token) setAccessToken(token);
+  return data;
+}
+
+// 이메일 인증 코드 발송
+export async function sendVerificationCode(email: string, purpose: "signup" | "reset_password") {
+  const { data } = await http.post("/auth/email/send-verification", {
+    email,
+    purpose,
+  });
+  return data;
+}
+
+// 이메일 인증 코드 확인
+export async function verifyEmailCode(email: string, code: string) {
+  const { data } = await http.post("/auth/email/verify-code", {
+    email,
+    code,
+  });
+  return data;
+}
+
+// 로그인 ID 중복 확인
+export async function checkLoginId(loginId: string) {
+  const { data } = await http.get("/auth/check-login-id", {
+    params: { login_id: loginId },
+  });
+  return data;
+}
+
+// 이메일 회원가입 (인증 후)
+export async function emailSignupVerified(
+  loginId: string,
+  email: string,
+  password: string,
+  nickname?: string
+) {
+  const { data } = await http.post("/auth/email/signup", {
+    login_id: loginId,
+    email,
+    password,
+    nickname,
+  });
+  const token = data?.accessToken || data?.access;
+  if (token) setAccessToken(token);
+  return data;
+}
+
+// 비밀번호 재설정
+export async function resetPassword(email: string, newPassword: string) {
+  const { data } = await http.post("/auth/email/reset-password", {
+    email,
+    new_password: newPassword,
+  });
+  return data;
+}
+
+// 아이디 찾기 (새로 추가)
+export async function findLoginIdByEmail(email: string) {
+  const { data } = await http.post("/auth/email/find-login-id", { email });
+  return data;
+}
+
+export async function loginWithAppleWeb(): Promise<{ access: string; refresh?: string }> {
+  const { data } = await http.get<{ loginUrl: string }>(
+    "/auth/apple/login",
+    { params: { client: "web", returnUrl: RETURN_URL } }
+  );
+
+  const result = await WebBrowser.openAuthSessionAsync(data.loginUrl, RETURN_URL);
+  let urlFromAuth: string | null = result.type === "success" ? result.url : null;
+
+  if (!urlFromAuth) {
+    console.log("[APPLE WEB] waiting deep link…");
+    urlFromAuth = await waitForDeepLinkOnce(8000);
   }
+  if (!urlFromAuth) throw new Error("login_cancelled");
 
-  // 4) access/refresh 토큰 확인
+  const q = parseQuery(urlFromAuth);
+  if (q.error) throw new Error(q.error_description || q.error);
+
   const access = q.access || q.accessToken;
   const refresh = q.refresh || q.refreshToken;
-  if (!access) {
-    console.error("[AUTH] no access token in callback query");
-    throw new Error("no_access_token_from_callback");
-  }
+  if (!access) throw new Error("no_access_token_from_callback");
 
-  // 5) Axios에 토큰 세팅
   setAccessToken(access);
-
   return { access, refresh };
 }
 
+export async function loginWithApple(): Promise<{ token: string; user?: any; raw?: any }> {
+  if (Platform.OS !== "ios") {
+    throw new Error("Apple 로그인은 iOS에서만 지원됩니다.");
+  }
+
+  const available = await AppleAuthentication.isAvailableAsync();
+  if (!available) {
+    const web = await loginWithAppleWeb();
+    return { token: web.access, user: null, raw: { via: "web" } };
+  }
+
+  try {
+    console.log("[APPLE] signInAsync start");
+    const cred = await withTimeout(
+      AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      }),
+      60000
+    );
+
+    const idToken = (cred as any)?.identityToken as string | undefined;
+    const authCode = cred?.authorizationCode ?? null;
+    console.log("[APPLE] idTokenLen=", idToken?.length || 0, "hasAuthCode=", !!authCode);
+    if (!idToken) throw Object.assign(new Error("apple_auth_no_id_token"), { code: "apple_auth_no_id_token" });
+
+    const { data } = await http.post("/auth/apple/callback", {
+      identityToken: idToken,
+      authorizationCode: authCode,
+      user: (cred as any).user ?? null,
+      email: (cred as any).email ?? null,
+      givenName: cred.fullName?.givenName ?? null,
+      familyName: cred.fullName?.familyName ?? null,
+      mode: "json",
+      state: "native:" + Math.random().toString(36).slice(2, 10),
+    });
+
+    const token = data?.accessToken || data?.access || data?.token;
+    console.log("[APPLE] resp keys:", Object.keys(data || {}), "accessToken len:", token?.length || 0);
+    if (!token) throw new Error("no_access_token_from_callback");
+
+    setAccessToken(token);
+    return { token, user: data?.user ?? null, raw: data };
+  } catch (e: any) {
+    const code = e?.code || e?.name;
+    if (code === "ERR_REQUEST_CANCELED" || code === "ASAuthorizationErrorCanceled") {
+      throw Object.assign(new Error("사용자가 로그인을 취소했어요."), { code: "ASAuthorizationErrorCanceled" });
+    }
+    if (code === "apple_signin_timeout" || code === "apple_auth_no_id_token") {
+      const web = await loginWithAppleWeb();
+      setAccessToken(web.access);
+      return { token: web.access, user: null, raw: { via: "web" } };
+    }
+    throw e;
+  }
+}
  
 // 회원 탈퇴 
 export async function withdrawUser() {

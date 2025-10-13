@@ -84,12 +84,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Theme.fontSizes.base,
         fontWeight: Theme.fontWeights.bold,
-        marginBottom: Theme.spacing.sm,
+        marginBottom: Theme.spacing.md,
     },
     option: {
         padding: Theme.spacing.sm,
         borderRadius: 8,
-        marginBottom: Theme.spacing.xs,
+        marginBottom: Theme.spacing.sm,
         borderWidth: 1,
         borderColor: Theme.colors.lightGray,
     },
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
         marginTop: Theme.spacing.md,
     },
     button: {
-        marginLeft: Theme.spacing.sm,
+        marginLeft: Theme.spacing.md,
     },
     disabledButton: {
         opacity: 0.5,

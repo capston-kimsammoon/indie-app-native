@@ -1,5 +1,4 @@
-// app/stamp/index.tsx
-// app/stamp/index.tsx
+// app/stamp.tsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
@@ -13,24 +12,40 @@ import {
   TouchableWithoutFeedback,
   StatusBar,
   RefreshControl,
-  ActivityIndicator, Alert
+  ActivityIndicator,
+  Alert,
+  TouchableOpacity,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter } from "expo-router";
 import Theme from "@/constants/Theme";
 import { Picker } from "@react-native-picker/picker";
-import { Stamp as StampIcon } from "lucide-react-native";
 import { fetchCollectedStamps } from "@/api/StampApi";
 import { getDateFromDateString } from "@/utils/dateUtils";
 import IcStamper from "@/assets/icons/ic-stamper.svg";
 import { useAuthStore } from "@/src/state/authStore";
+import StampModal from "@/components/modal/StampModal";
+import GetStampModal from "@/components/modal/GetStampModal";
 
-type UIStamp = { id: number; image: string; date: string };
+type UIStamp = {
+  id: number;
+  image: string;
+  date: string;
+  title?: string;
+  venueName?: string;
+  performanceId?: string;
+};
 
 type ServerStamp = {
   id: number;
   performance?: {
+    id?: number;
     image_url?: string | null;
     date?: string | null;
+    title?: string | null;
+    venue?: {
+      id?: number;
+      name?: string | null;
+    } | null;
   } | null;
 };
 
@@ -53,6 +68,13 @@ export default function StampPage() {
 
   // 바텀시트 모달
   const [showRangeSheet, setShowRangeSheet] = useState(false);
+
+  // 스탬프 상세 모달
+  const [selectedStamp, setSelectedStamp] = useState<UIStamp | null>(null);
+  const [showStampModal, setShowStampModal] = useState(false);
+
+  // 스탬프 받기 모달
+  const [showGetStampModal, setShowGetStampModal] = useState(false);
 
   // 로딩/리프레시/에러
   const [loading, setLoading] = useState(false);
@@ -78,14 +100,14 @@ export default function StampPage() {
       Alert.alert("로그인 필요", "로그인 후 스탬프를 이용할 수 있어요.", [
         {
           text: "확인",
-          onPress: () => router.back(), // 이전 페이지로 이동
+          onPress: () => router.back(),
         },
       ]);
     }
   }, [user]);
 
   if (!user) {
-    return null; // 화면 렌더링 안 함
+    return null;
   }
 
   // 서버 호출 (연/월 모두 전달)
@@ -121,7 +143,7 @@ export default function StampPage() {
     load();
   }, [load]);
 
-  // UI 변환 (날짜만 표기)
+  // UI 변환
   const uiStamps: UIStamp[] = useMemo(() => {
     return (serverStamps || []).map((s) => ({
       id: s.id,
@@ -129,8 +151,17 @@ export default function StampPage() {
         s.performance?.image_url ??
         "https://dummyimage.com/100x100/eeeeee/aaaaaa&text=NO+IMG",
       date: getDateFromDateString(s.performance?.date),
+      title: s.performance?.title ?? undefined,
+      venueName: s.performance?.venue?.name ?? undefined,
+      performanceId: s.performance?.id ? String(s.performance.id) : undefined,
     }));
   }, [serverStamps]);
+
+  // 스탬프 클릭 핸들러
+  const handleStampPress = (stamp: UIStamp) => {
+    setSelectedStamp(stamp);
+    setShowStampModal(true);
+  };
 
   // 기간 적용
   const applyRange = () => {
@@ -183,13 +214,18 @@ export default function StampPage() {
           )}
 
           {uiStamps.map((s) => (
-            <View key={s.id} style={styles.stampItem}>
+            <TouchableOpacity
+              key={s.id}
+              style={styles.stampItem}
+              onPress={() => handleStampPress(s)}
+              activeOpacity={0.7}
+            >
               <Image
                 source={s.image ? { uri: s.image } : require('@/assets/images/modie-sample.png')}
                 style={styles.stampImage}
               />
               <Text style={styles.stampDate}>{s.date}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
 
           {uiStamps.length === 0 && !error && (
@@ -201,9 +237,25 @@ export default function StampPage() {
       )}
 
       {/* 스탬프 받기 */}
-      <Pressable style={styles.fab} onPress={() => router.push("/getstamp")}>
+      <Pressable style={styles.fab} onPress={() => setShowGetStampModal(true)}>
         <IcStamper width={Theme.iconSizes.xl} height={Theme.iconSizes.xl} />
       </Pressable>
+
+      {/* 스탬프 받기 모달 */}
+      <GetStampModal
+        visible={showGetStampModal}
+        onClose={() => {
+          setShowGetStampModal(false);
+          load(); // 모달 닫을 때 목록 새로고침
+        }}
+      />
+
+      {/* 스탬프 상세 모달 */}
+      <StampModal
+        visible={showStampModal}
+        onClose={() => setShowStampModal(false)}
+        stamp={selectedStamp}
+      />
 
       {/* 바텀시트 모달 */}
       <Modal
@@ -314,7 +366,11 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     justifyContent: "center",
   },
-  pillText: { color: Theme.colors.darkGray, fontSize: Theme.fontSizes.sm, fontWeight: Theme.fontWeights.medium },
+  pillText: {
+    color: Theme.colors.darkGray,
+    fontSize: Theme.fontSizes.sm,
+    fontWeight: Theme.fontWeights.medium,
+  },
   appliedText: {
     color: Theme.colors.darkGray,
     fontSize: Theme.fontSizes.xs,
@@ -330,20 +386,24 @@ const styles = StyleSheet.create({
     paddingVertical: Theme.spacing.lg,
     rowGap: Theme.spacing.lg,
   },
-  stampItem: { alignItems: "center", width: "33.33%", marginBottom: Theme.spacing.md,},
+  stampItem: {
+    alignItems: "center",
+    width: "33.33%",
+    marginBottom: Theme.spacing.md,
+  },
   stampImage: {
     width: 80,
     height: 80,
     borderRadius: 40,
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
-    marginBottom: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
     backgroundColor: Theme.colors.white,
   },
-  stampDate: { 
-    fontSize: Theme.fontSizes.xs, 
+  stampDate: {
+    fontSize: Theme.fontSizes.sm,
     fontWeight: Theme.fontWeights.medium,
-    color: Theme.colors.darkGray 
+    color: Theme.colors.darkGray,
   },
 
   // FAB

@@ -84,21 +84,25 @@ export default function TodayPerformances() {
           showsHorizontalScrollIndicator={false}
           snapToInterval={BANNER_WIDTH}
           decelerationRate="fast"
-          removeClippedSubviews={false} // Android 이미지 렌더링 문제 방지
-          keyExtractor={(_, index) => `today-performance-${index}`}
+          removeClippedSubviews={false}
+          extraData={items}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
           getItemLayout={(_, index) => ({
             length: BANNER_WIDTH,
             offset: BANNER_WIDTH * index,
             index,
           })}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <Pressable onPress={() => router.push(`/performance/${item.id}`)}>
               <View style={[styles.card, { width: BANNER_WIDTH }]}>
                 <Image
-                  key={item.id}
+                  key={`img-${item.id}-${index}`}
                   source={item.thumbnail ? { uri: item.thumbnail } : require('@/assets/images/modie-sample.png')}
                   style={styles.poster}
                   resizeMode="cover"
+                  // 이미지 로딩 개선을 위한 props 추가
+                  fadeDuration={0}
+                  defaultSource={require('@/assets/images/modie-sample.png')}
                 />
                 <View style={styles.info}>
                   <Text style={styles.performanceTitle} numberOfLines={1} ellipsizeMode="tail">
@@ -115,6 +119,10 @@ export default function TodayPerformances() {
             </Pressable>
           )}
           onMomentumScrollEnd={onMomentumScrollEnd}
+          // 추가 최적화 props
+          windowSize={5}
+          maxToRenderPerBatch={3}
+          initialNumToRender={3}
         />
 
         {/* 인디케이터: 카드 아래 중앙 */}
@@ -155,8 +163,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   poster: {
-    width: 100, // 명확한 width와 height 지정
-    height: "100%",
+    width: 100,
+    height: BANNER_HEIGHT,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
@@ -187,7 +195,7 @@ const styles = StyleSheet.create({
   },
   indicatorWrapper: {
     position: "absolute",
-    bottom: 8, // 카드 바로 아래
+    bottom: 8,
     width: "100%",
     alignItems: "center",
   },

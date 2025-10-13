@@ -1,5 +1,5 @@
 //app/getstamp/index.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   SafeAreaView,
   StatusBar,
@@ -25,6 +25,8 @@ type Candidate = {
   date: string;
   posterUrl?: string;
 };
+
+type ListItem = Candidate | { id: string; isEmpty: true };
 
 function toYmd(dateLike?: string | number | Date) {
   if (!dateLike) return "-";
@@ -91,6 +93,19 @@ export default function GetStampPage() {
     loadAvailable();
   }, []);
 
+  // 빈 아이템을 추가하여 왼쪽 정렬 유지
+  const displayItems: ListItem[] = useMemo(() => {
+    const result: ListItem[] = [...items];
+    const remainder = items.length % NUM_COLUMNS;
+    if (remainder !== 0) {
+      const emptyCount = NUM_COLUMNS - remainder;
+      for (let i = 0; i < emptyCount; i++) {
+        result.push({ id: `empty-${i}`, isEmpty: true });
+      }
+    }
+    return result;
+  }, [items, NUM_COLUMNS]);
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
@@ -101,7 +116,7 @@ export default function GetStampPage() {
         </View>
       ) : (
         <FlatList
-          data={items}
+          data={displayItems}
           keyExtractor={(item) => String(item.id)}
           numColumns={NUM_COLUMNS}
           columnWrapperStyle={{
@@ -113,45 +128,61 @@ export default function GetStampPage() {
             paddingTop: GAP,
             paddingBottom: GAP,
           }}
-          renderItem={({ item }) => (
-            <Pressable
-              style={{
-                flex: 1,
-                marginHorizontal: GAP / 2,
-                marginBottom: GAP,
-                alignItems: "center",
-              }}
-              onPress={() => {
-                setSelected(item);
-                setShowConfirm(true);
-              }}
-            >
-              <Image
-                source={item.posterUrl ? { uri: item.posterUrl } : require('@/assets/images/modie-sample.png')}
+          renderItem={({ item }) => {
+            // 빈 아이템은 투명하게 렌더링
+            if ('isEmpty' in item && item.isEmpty) {
+              return (
+                <View
+                  style={{
+                    flex: 1,
+                    marginHorizontal: GAP / 2,
+                    marginBottom: GAP,
+                  }}
+                />
+              );
+            }
+
+            const candidate = item as Candidate;
+            return (
+              <Pressable
                 style={{
-                  width: 100,
-                  height: 140,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: Theme.colors.lightGray,
+                  flex: 1,
+                  marginHorizontal: GAP / 2,
+                  marginBottom: GAP,
+                  alignItems: "center",
                 }}
-              />
-              <Text
-                style={{
-                  fontSize: Theme.fontSizes.sm,
-                  fontWeight: Theme.fontWeights.medium,
-                  color: Theme.colors.black,
-                  maxWidth: 100,
-                  textAlign: "center",
-                  marginTop: Theme.spacing.sm,
+                onPress={() => {
+                  setSelected(candidate);
+                  setShowConfirm(true);
                 }}
-                numberOfLines={1}
-                ellipsizeMode="tail"
               >
-                {item.title}
-              </Text>
-            </Pressable>
-          )}
+                <Image
+                  source={candidate.posterUrl ? { uri: candidate.posterUrl } : require('@/assets/images/modie-sample.png')}
+                  style={{
+                    width: 100,
+                    height: 140,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: Theme.colors.lightGray,
+                  }}
+                />
+                <Text
+                  style={{
+                    fontSize: Theme.fontSizes.sm,
+                    fontWeight: Theme.fontWeights.medium,
+                    color: Theme.colors.black,
+                    maxWidth: 100,
+                    textAlign: "center",
+                    marginTop: Theme.spacing.sm,
+                  }}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {candidate.title}
+                </Text>
+              </Pressable>
+            );
+          }}
         />
       )}
 
@@ -178,7 +209,7 @@ export default function GetStampPage() {
                           "스탬프 수집 완료",
                           `${selected.title} 공연의 스탬프를 받았어요!`,
                           [
-                            { text: "스탬프 리스트 이동", onPress: () => router.push("/mystamp") },
+                            { text: "스탬프 리스트 이동", onPress: () => router.push("/stamp") },
                             { text: "닫기", style: "cancel" }
                           ]
                         );
@@ -220,7 +251,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Theme.colors.white },
   backdrop: {
     flex: 1,
-    backgroundColor: Theme.colors.gray,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
     padding: Theme.spacing.lg,
@@ -237,6 +268,6 @@ const styles = StyleSheet.create({
   btn: { flex: 1, padding: 10, borderRadius: 8, alignItems: "center" },
   ok: { backgroundColor: Theme.colors.themeOrange },
   okText: { color: Theme.colors.white, fontWeight: Theme.fontWeights.semibold },
-  cancel: { backgroundColor: Theme.colors.white },
+  cancel: { backgroundColor: Theme.colors.lightGray },
   cancelText: { color: Theme.colors.darkGray, fontWeight: Theme.fontWeights.semibold },
 });

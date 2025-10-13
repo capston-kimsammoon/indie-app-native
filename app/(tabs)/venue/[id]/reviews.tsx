@@ -23,7 +23,7 @@ import { ReviewItem } from "@/types/review";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { fetchUserInfo } from "@/api/UserApi";
 import { requireLogin } from "@/utils/auth";
-import ReportModal from "@/components/filters/ReportModal";
+import ReportModal from "@/components/modal/ReportModal";
 
 type RouteParams = { id: string };
 
@@ -148,8 +148,10 @@ export default function VenueReviewsPage() {
   };
 
   const onReportPress = (review: ReviewItem) => {
-    setReviewToReport(review);
-    setReportModalVisible(true);
+    requireLogin(() => {
+      setReviewToReport(review);
+      setReportModalVisible(true);
+    });
   };
 
   const handleReportSubmit = async (type: ReportType) => {

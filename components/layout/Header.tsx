@@ -1,5 +1,5 @@
 import React from 'react';
-import { SafeAreaView, View, Pressable, Text, StyleSheet, Platform } from 'react-native';
+import { SafeAreaView, View, Pressable, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import Theme from '@/constants/Theme';
 import { useRouter } from 'expo-router';
 
@@ -41,26 +41,51 @@ export default function Header({ pathname, title, venueName, artistName }: Props
       </View>,
       <View />,
       <View style={styles.right}>
-        <Pressable style={styles.icon} onPress={handleNavigateToSearch}>
+        <TouchableOpacity style={styles.icon} onPress={handleNavigateToSearch}>
           <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
-        </Pressable>
-        <Pressable onPress={handleNavigateToAlarm}>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleNavigateToAlarm}>
           <IcHeaderAlarm width={headerIconSize} height={headerIconSize} />
-        </Pressable>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  // 공통 뒤로가기 + 타이틀 + 검색 아이콘 구조
-  const backTitleSearch = (headerTitle: string) =>
+  // 공통 뒤로가기만 있는 구조
+  const backOnly = () =>
+    renderHeaderContent(
+      <TouchableOpacity style={styles.left} onPress={handleGoBack}>
+        <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+      </TouchableOpacity>,
+      <View />, // 가운데 비워둠
+      <View style={styles.right} /> // 오른쪽도 비움
+    );
+
+  // 뒤로가기 + 중앙 제목만 있는 헤더
+  const backTitleOnly = (headerTitle: string) =>
     renderHeaderContent(
       <Pressable style={styles.left} onPress={handleGoBack}>
         <IcArrowLeft width={headerIconSize} height={headerIconSize} />
       </Pressable>,
       <Text style={styles.title}>{headerTitle}</Text>,
-      <Pressable style={styles.right} onPress={handleNavigateToSearch}>
+      <View style={[styles.right, { opacity: 0 }]}>
+        {/* 빈 공간으로 중앙 제목 정렬 */}
         <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
-      </Pressable>
+      </View>
+    );
+
+
+
+  // 공통 뒤로가기 + 타이틀 + 검색 아이콘 구조
+  const backTitleSearch = (headerTitle: string) =>
+    renderHeaderContent(
+      <TouchableOpacity style={styles.left} onPress={handleGoBack}>
+        <IcArrowLeft width={headerIconSize} height={headerIconSize} />
+      </TouchableOpacity>,
+      <Text style={styles.title}>{headerTitle}</Text>,
+      <TouchableOpacity style={styles.right} onPress={handleNavigateToSearch}>
+        <IcHeaderSearch width={headerIconSize} height={headerIconSize} />
+      </TouchableOpacity>
     );
 
   // 매거진
@@ -100,26 +125,23 @@ export default function Header({ pathname, title, venueName, artistName }: Props
       <View style={styles.right} />
     );
   // 마이페이지 관련
-  if (pathname.startsWith('/mypage')) return backTitleSearch('');
+  if (pathname.startsWith('/mypage')) return backOnly();
   if (pathname.startsWith('/stamp')) return backTitleSearch('스탬프');
   if (pathname.startsWith('/favorite')) return backTitleSearch('찜');
   if (pathname.startsWith('/myreview')) return backTitleSearch('내가 쓴 리뷰');
   if (pathname.startsWith('/mystamp')) return backTitleSearch('스탬프 리스트');
   if (pathname.startsWith('/getstamp')) return backTitleSearch('스탬프 찾기');
   if (pathname.startsWith('/nearby')) return backTitleSearch('가까운 공연 찾기');
-  if (pathname.startsWith('/notice')) return backTitleSearch('');
-  if (pathname.startsWith('/support')) return backTitleSearch('');
-  if (pathname.startsWith('/login'))
-    return renderHeaderContent(
-      <Pressable style={styles.left}>
-      </Pressable>,
-      <Text style={styles.title}></Text>,
-      <View style={styles.right} />
-    );
+  if (pathname.startsWith('/notice')) return backOnly();
+  if (pathname.startsWith('/support')) return backOnly();
 
-  if (pathname.startsWith('/terms/service')) return backTitleSearch('');
-  if (pathname.startsWith('/terms/location')) return backTitleSearch('');
-  if (pathname.startsWith('/terms/privacy')) return backTitleSearch('');
+  if (pathname.startsWith('/terms/service')) return backOnly();
+  if (pathname.startsWith('/terms/location')) return backOnly();
+  if (pathname.startsWith('/terms/privacy')) return backOnly();
+
+  if (pathname.startsWith('/login/find-id')) return backOnly();
+  if (pathname.startsWith('/login/find-password')) return backOnly();
+  if (pathname.startsWith('/login/email')) return backOnly();
 
   // 기본 헤더
   return renderHeaderContent(

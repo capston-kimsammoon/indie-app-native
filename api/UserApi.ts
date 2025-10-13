@@ -1,7 +1,8 @@
 // api/UserApi.ts
-import http from "./http";
+import http , {clearAccessToken, getAccessToken} from "./http";
 import type { AxiosError } from "axios";
 import { User, UpdateSettingsBody, LogoutResponse, AssetLike} from "@/types/user";
+import { useAuthStore } from "@/src/state/authStore";
 
 // ====== 유틸 ======
 function parseAxiosErr(e: unknown): never {
@@ -106,4 +107,18 @@ export async function logoutApi(): Promise<LogoutResponse> {
 /** 6) 선택적 유저 조회 (그냥 래핑) */
 export async function fetchUserInfoOptional(): Promise<User | null> {
   return fetchUserInfo();
+}
+
+export async function withdrawAccount() {
+  try {
+    const res = await http.delete("/auth/withdraw", {
+      headers: { "x-silent-error": "1" },
+    });
+    return res.data;
+  } catch (e: any) {
+    if (e?.response?.status === 401) return { message: "탈퇴되었습니다." };
+    throw e;
+  } finally {
+    clearAccessToken();
+  }
 }
