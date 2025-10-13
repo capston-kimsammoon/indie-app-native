@@ -1,3 +1,4 @@
+// app/onboarding/terms.tsx
 import React, { useMemo, useState } from "react";
 import { View, Text, Pressable, Alert, Linking, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
@@ -33,9 +34,14 @@ export default function TermsScreen() {
     if (!allChecked) return;
     try {
       setSubmitting(true);
+      console.log("[TERMS] Saving terms agreement...");
       await AsyncStorage.setItem(TERMS_KEY, "1");
+      console.log("[TERMS] Navigating to profile...");
+      
       router.replace("/onboarding/profile");
+      
     } catch (e: any) {
+      console.error("[TERMS] Error:", e);
       Alert.alert("약관 동의", e?.message || "처리에 실패했어요.");
     } finally {
       setSubmitting(false);

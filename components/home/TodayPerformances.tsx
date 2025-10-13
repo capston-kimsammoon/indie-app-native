@@ -11,7 +11,7 @@ import { Performance } from "@/types/performance";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = Theme.spacing.md * 2;
 const BANNER_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING;
-const BANNER_HEIGHT = 160;
+const BANNER_HEIGHT = 140;
 
 export default function TodayPerformances() {
   const router = useRouter();
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   poster: {
-    width: 100,
+    aspectRatio: 3/4,
     height: BANNER_HEIGHT,
     borderRadius: 8,
     borderWidth: 1,

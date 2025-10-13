@@ -31,6 +31,7 @@ export default function EmailVerification({
   const [resending, setResending] = useState(false);
   const [timeLeft, setTimeLeft] = useState(600); // 10분
   const [canResend, setCanResend] = useState(false);
+  const [verified, setVerified] = useState(false);
 
   // 타이머
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function EmailVerification({
       setTimeLeft(600);
       setCanResend(false);
       setCode("");
+      setVerified(false);
     } catch (e: any) {
       Alert.alert("오류", e?.response?.data?.detail || "인증 코드 재전송에 실패했습니다.");
     } finally {
@@ -96,11 +98,16 @@ export default function EmailVerification({
     try {
       setLoading(true);
       await verifyEmailCode(email, code);
+      setVerified(true);
+      setLoading(false);  
+      
+      // 즉시 콜백 실행 
       onVerified();
+      
     } catch (e: any) {
+      setLoading(false);  
       Alert.alert("인증 실패", e?.response?.data?.detail || "인증 코드가 올바르지 않습니다.");
-    } finally {
-      setLoading(false);
+      setVerified(false);
     }
   };
 
@@ -126,7 +133,7 @@ export default function EmailVerification({
           keyboardType="number-pad"
           maxLength={6}
           style={styles.input}
-          editable={!loading}
+          editable={!loading && !verified}
           returnKeyType="done"
           onSubmitEditing={onVerify}
         />
@@ -138,14 +145,16 @@ export default function EmailVerification({
         style={({ pressed }) => [
           styles.verifyBtn,
           pressed && { opacity: 0.9 },
-          loading && { opacity: 0.6 },
+          (loading || verified) && { opacity: 0.6 },
         ]}
-        disabled={loading}
+        disabled={loading || verified} 
       >
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.verifyBtnText}>인증하기</Text>
+          <Text style={styles.verifyBtnText}>
+            {verified ? "인증 완료" : "인증하기"}
+          </Text>
         )}
       </Pressable>
 
@@ -153,11 +162,11 @@ export default function EmailVerification({
         <Text style={styles.footerText}>인증 코드를 받지 못하셨나요?</Text>
         <TouchableOpacity
           onPress={onResend}
-          disabled={!canResend || resending}
+          disabled={!canResend || resending || verified}
           style={({ pressed }) => [
             styles.resendBtn,
             pressed && { opacity: 0.7 },
-            (!canResend || resending) && { opacity: 0.4 },
+            (!canResend || resending || verified) && { opacity: 0.4 },
           ]}
         >
           {resending ? (
@@ -166,7 +175,7 @@ export default function EmailVerification({
             <Text
               style={[
                 styles.resendText,
-                !canResend && { color: Theme.colors.gray },
+                (!canResend || verified) && { color: Theme.colors.gray },
               ]}
             >
               재전송
@@ -175,7 +184,7 @@ export default function EmailVerification({
         </TouchableOpacity>
       </View>
 
-      {onCancel && (
+      {onCancel && !verified && (
         <TouchableOpacity onPress={onCancel} style={styles.cancelBtn} disabled={loading}>
           <Text style={styles.cancelText}>취소</Text>
         </TouchableOpacity>
@@ -205,26 +214,26 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.md,
   },
   input: {
-    height: 48,  // 56 -> 48로 축소
+    height: 48,  
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
     paddingHorizontal: 16,
-    fontSize: Theme.fontSizes.lg,  // xl -> lg로 축소
-    letterSpacing: 4,  // 8 -> 4로 축소
-    textAlign: "left",  // center -> left로 변경
+    fontSize: Theme.fontSizes.lg,  
+    letterSpacing: 4,  
+    textAlign: "left",  
     backgroundColor: "#fff",
   },
   timer: {
     position: "absolute",
     right: 16,
-    top: 14,  // 18 -> 14로 조정 (높이 변경에 따라)
+    top: 14,  
     fontSize: Theme.fontSizes.base,
     color: Theme.colors.themeOrange,
     fontWeight: Theme.fontWeights.semibold as any,
   },
   verifyBtn: {
-    height: 48,  // 52 -> 48로 축소
+    height: 48, 
     borderRadius: 12,
     backgroundColor: Theme.colors.themeOrange,
     alignItems: "center",
@@ -235,6 +244,12 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: Theme.fontSizes.base,
     fontWeight: Theme.fontWeights.semibold as any,
+  },
+  processingText: {  
+    textAlign: "center",
+    fontSize: Theme.fontSizes.sm,
+    color: Theme.colors.themeOrange,
+    marginBottom: Theme.spacing.md,
   },
   footer: {
     flexDirection: "row",

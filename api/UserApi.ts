@@ -19,15 +19,33 @@ function normalizeFileUri(uri: string): string {
 }
 
 export async function fetchUserInfo() {
-  const token = useAuthStore.getState().token;
-  if (!token) {
-    return null;
+  try {
+    console.log("[API] Fetching user info...");
+    const { data } = await http.get("/user/me");
+    console.log("[API] User info:", data);
+    return data;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    console.log("[API] Fetch user info error, status:", status);
+    
+    // 428 = 프로필 미완료
+    if (status === 428) {
+      console.log("[API] Profile incomplete (428)");
+      return { 
+        needsOnboarding: true,
+        is_completed: false 
+      };
+    }
+    
+    // 401 = 인증 실패
+    if (status === 401) {
+      console.log("[API] Unauthorized (401)");
+      return null;
+    }
+    
+    throw e;
   }
-  const { data } = await http.get("/user/me");
-  return data;
 }
-
-
 
 export async function updateNickname(nickname: string): Promise<User> {
   try {
@@ -120,4 +138,18 @@ export async function agreeTerms(): Promise<{ ok: boolean }> {
   } catch (e) {
     return parseAxiosErr(e);
   }
+}
+
+export async function completeProfile(agreedToTerms: boolean, nickname?: string) {
+  console.log("[API] Complete profile request:", { agreedToTerms, nickname });
+  
+  const { data } = await http.post("/user/complete-profile", {
+    agreed_to_terms: agreedToTerms,
+    nickname,
+  });
+  
+  console.log("[API] Complete profile response:", data);
+  console.log("[API] User is_completed:", data?.user?.is_completed);
+  
+  return data;
 }

@@ -16,22 +16,19 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Theme from "@/constants/Theme";
 import { emailSignupVerified, checkLoginId } from "@/api/AuthApi";
-import { fetchUserInfo } from "@/api/UserApi";
 import { useAuthStore } from "@/src/state/authStore";
 import EmailVerification from "@/components/auth/EmailVerification";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Step = "input" | "verify";
 
-
 export default function EmailSignupScreen() {
   const router = useRouter();
-  const setUser = useAuthStore((s) => s.setUser);
-
+  const { setUser, setToken } = useAuthStore();
   const [step, setStep] = useState<Step>("input");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [nickname, setNickname] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -40,19 +37,16 @@ export default function EmailSignupScreen() {
   const [loginIdChecked, setLoginIdChecked] = useState(false);
   const [loginIdAvailable, setLoginIdAvailable] = useState(false);
 
-  // 이메일 유효성 검사
   const validateEmail = (text: string) => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(text);
   };
 
-  // 아이디 유효성 검사
   const validateLoginId = (text: string) => {
     const regex = /^[a-zA-Z0-9_]{6,12}$/;
     return regex.test(text);
   };
 
-  // 아이디 중복 확인
   const onCheckLoginId = async () => {
     if (!loginId.trim()) {
       Alert.alert("아이디 확인", "아이디를 입력해 주세요.");
@@ -69,7 +63,6 @@ export default function EmailSignupScreen() {
       const result = await checkLoginId(loginId);
       setLoginIdAvailable(result.available);
       setLoginIdChecked(true);
-      Alert.alert("아이디 확인", result.message);
     } catch (e: any) {
       Alert.alert("아이디 확인", e?.response?.data?.detail || "확인에 실패했습니다.");
     } finally {
@@ -78,13 +71,11 @@ export default function EmailSignupScreen() {
   };
 
   const validatePassword = (text: string) => {
-    // 영문+숫자+특수문자 6~18자
     const regex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{6,18}$/;
     return regex.test(text);
   };
 
   const onNext = () => {
-    // 유효성 검사
     if (!loginId.trim()) {
       Alert.alert("회원가입", "아이디를 입력해 주세요.");
       return;
@@ -116,16 +107,7 @@ export default function EmailSignupScreen() {
       Alert.alert("회원가입", "비밀번호가 일치하지 않습니다.");
       return;
     }
-    if (!nickname.trim()) {
-      Alert.alert("회원가입", "닉네임을 입력해 주세요.");
-      return;
-    }
-    if (nickname.length < 2 || nickname.length > 10) {
-      Alert.alert("회원가입", "닉네임은 2~10자여야 합니다.");
-      return;
-    }
 
-    // 이메일 인증 단계로
     setStep("verify");
   };
 
@@ -133,24 +115,65 @@ export default function EmailSignupScreen() {
   const onVerified = useCallback(async () => {
     try {
       setLoading(true);
-      await emailSignupVerified(loginId.trim(), email.trim(), password, nickname.trim());
-      
-      const me = await fetchUserInfo();
-      if (me) {
-        setUser(me);
-        Alert.alert("회원가입 완료", "환영합니다!", [
-          { text: "확인", onPress: () => router.replace("/") },
-        ]);
-      }
-    } catch (e: any) {
-      const detail = e?.response?.data?.detail || e?.message || "회원가입에 실패했습니다.";
-      Alert.alert("회원가입 실패", detail);
-      setStep("input");
-    } finally {
-      setLoading(false);
-    }
-  }, [loginId, email, password, nickname, router, setUser]);
+      console.log("[SIGNUP] Starting signup process...");
 
+      const tempNickname = `user_${loginId}`;
+
+      const result = await emailSignupVerified(
+        loginId.trim(),
+        email.trim(),
+        password,
+        tempNickname
+      );
+      console.log("[SIGNUP] Signup result:", result);
+
+      const token = result?.accessToken || result?.access;
+      if (!token) {
+        throw new Error("인증 토큰을 받지 못했습니다.");
+      }
+
+      const user = result?.user;
+      if (!user) {
+        throw new Error("사용자 정보를 받지 못했습니다.");
+      }
+
+      console.log("[SIGNUP] Saving token and user...");
+      setToken(token);  
+      setUser(user);
+
+      // AsyncStorage에도 직접 저장 (백업)
+      await AsyncStorage.setItem("access_token", token);
+      if (result?.refreshToken) {
+        await AsyncStorage.setItem("refresh_token", result.refreshToken);
+      }
+
+      setLoading(false);
+
+      console.log("[SIGNUP] User created, is_completed:", user.is_completed);
+
+      // 온보딩으로 이동
+      if (!user.is_completed || result?.needsOnboarding) {
+        console.log("[SIGNUP] Navigating to onboarding/terms...");
+        setTimeout(() => {
+          router.replace("/onboarding/terms");
+        }, 100);
+      } else {
+        console.log("[SIGNUP] Already completed, navigating to home...");
+        setTimeout(() => {
+          router.replace("/");
+        }, 100);
+      }
+
+    } catch (e: any) {
+      console.error("[SIGNUP] Error:", e);
+      setLoading(false);
+
+      const detail = e?.response?.data?.detail || e?.message || "회원가입에 실패했습니다.";
+      Alert.alert("회원가입 실패", detail, [
+        { text: "확인", onPress: () => setStep("input") }
+      ]);
+    }
+  }, [loginId, email, password, router, setUser, setToken]);
 
   const onCancelVerification = () => {
     setStep("input");
@@ -184,10 +207,8 @@ export default function EmailSignupScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* 타이틀 */}
         <Text style={styles.title}>회원가입</Text>
 
-        {/* 폼 */}
         <View style={styles.formArea}>
           {/* 아이디 입력 */}
           <View style={styles.inputGroup}>
@@ -270,7 +291,8 @@ export default function EmailSignupScreen() {
                 secureTextEntry={!showPasswordConfirm}
                 style={[styles.input, styles.passwordInput]}
                 editable={!loading}
-                returnKeyType="next"
+                returnKeyType="done"
+                onSubmitEditing={onNext}
               />
               <Pressable
                 onPress={() => setShowPasswordConfirm(!showPasswordConfirm)}
@@ -283,22 +305,6 @@ export default function EmailSignupScreen() {
                 />
               </Pressable>
             </View>
-          </View>
-
-          {/* 닉네임 */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>닉네임</Text>
-            <TextInput
-              value={nickname}
-              onChangeText={setNickname}
-              placeholder="2~10자"
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={styles.input}
-              editable={!loading}
-              returnKeyType="done"
-              onSubmitEditing={onNext}
-            />
           </View>
         </View>
       </ScrollView>
@@ -325,6 +331,7 @@ export default function EmailSignupScreen() {
   );
 }
 
+// styles는 기존과 동일
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -372,9 +379,9 @@ const styles = StyleSheet.create({
   eyeBtn: {
     position: "absolute",
     right: Theme.spacing.sm,
-    height: "100%",           
-    justifyContent: "center", 
-    alignItems: "center",    
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: Theme.spacing.sm,
   },
   bottomBtns: {
