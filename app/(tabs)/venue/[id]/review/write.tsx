@@ -21,6 +21,13 @@ export default function WriteReviewPage() {
 
   const pickImages = async () => {
     try {
+      // 권한 요청
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("권한 필요", "사진 라이브러리 접근 권한이 필요합니다.");
+        return;
+      }
+
       if (images.length >= 6) {
         Alert.alert("이미지는 최대 6장까지 업로드 가능합니다.");
         return;
@@ -111,19 +118,19 @@ export default function WriteReviewPage() {
 }
 
 const styles = StyleSheet.create({
-    container: { padding: Theme.spacing.md, backgroundColor: Theme.colors.white },
-    title: { fontSize: Theme.fontSizes.lg, fontWeight: Theme.fontWeights.bold, marginBottom: Theme.spacing.md },
-    leftText: { alignSelf: "flex-end", color: Theme.colors.gray, fontSize: Theme.fontSizes.sm, fontWeight: Theme.fontWeights.regular, marginBottom: Theme.spacing.md, marginTop: Theme.spacing.sm },
-    subtitle: { fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold },
-    textInput: { minHeight: 120, borderWidth: 1, borderColor: Theme.colors.lightGray, borderRadius: 10, padding: Theme.spacing.md, fontSize: Theme.fontSizes.base, textAlignVertical: "top" },
-    imageRow: { flexDirection: "row", flexWrap: "wrap", paddingTop: Theme.spacing.md },
-    thumbContainer: { position: "relative", marginRight: Theme.spacing.md },
-    thumb: { width: 80, height: 80, borderRadius: 8 },
-    removeBtn: { position: "absolute", top: -6, right: -6, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 12, width: 24, height: 24, justifyContent: "center", alignItems: "center" },
-    removeText: { color: Theme.colors.white, fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold },
-    addBtn: { width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderColor: Theme.colors.lightGray, justifyContent: "center", alignItems: "center" },
-    addText: { fontSize: 32, color: Theme.colors.gray },
-    submitButton: { backgroundColor: Theme.colors.themeOrange, borderRadius: 10, paddingVertical: Theme.spacing.sm, alignItems: "center", marginTop: Theme.spacing.md },
-    disabledButton: { opacity: 0.6 },
-    submitText: { color: Theme.colors.white, fontWeight: Theme.fontWeights.bold, fontSize: Theme.fontSizes.base },
+  container: { padding: Theme.spacing.md, backgroundColor: Theme.colors.white },
+  title: { fontSize: Theme.fontSizes.lg, fontWeight: Theme.fontWeights.bold, marginBottom: Theme.spacing.md },
+  leftText: { alignSelf: "flex-end", color: Theme.colors.gray, fontSize: Theme.fontSizes.sm, fontWeight: Theme.fontWeights.regular, marginBottom: Theme.spacing.md, marginTop: Theme.spacing.sm },
+  subtitle: { fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold },
+  textInput: { minHeight: 120, borderWidth: 1, borderColor: Theme.colors.lightGray, borderRadius: 10, padding: Theme.spacing.md, fontSize: Theme.fontSizes.base, textAlignVertical: "top" },
+  imageRow: { flexDirection: "row", flexWrap: "wrap", paddingTop: Theme.spacing.md },
+  thumbContainer: { position: "relative", marginRight: Theme.spacing.md },
+  thumb: { width: 80, height: 80, borderRadius: 8 },
+  removeBtn: { position: "absolute", top: -6, right: -6, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 12, width: 24, height: 24, justifyContent: "center", alignItems: "center" },
+  removeText: { color: Theme.colors.white, fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold },
+  addBtn: { width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderColor: Theme.colors.lightGray, justifyContent: "center", alignItems: "center" },
+  addText: { fontSize: 32, color: Theme.colors.gray },
+  submitButton: { backgroundColor: Theme.colors.themeOrange, borderRadius: 10, paddingVertical: Theme.spacing.sm, alignItems: "center", marginTop: Theme.spacing.md },
+  disabledButton: { opacity: 0.6 },
+  submitText: { color: Theme.colors.white, fontWeight: Theme.fontWeights.bold, fontSize: Theme.fontSizes.base },
 });

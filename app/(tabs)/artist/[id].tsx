@@ -141,7 +141,7 @@ export default function ArtistDetailPage() {
                     {artist.spotify_url && (
                         <View style={styles.row}>
                             <Text style={styles.label}>스포티파이</Text>
-                            <Pressable onPress={() => Linking.openURL(artist.spotify_url)}>
+                            <Pressable onPress={() => Linking.openURL(`https://open.spotify.com/artist/${artist.spotify_url}`)}>
                                 <Text style={styles.link}>바로가기</Text>
                             </Pressable>
                         </View>
@@ -256,9 +256,14 @@ const styles = StyleSheet.create({
     separator: { borderBottomWidth: 1, borderBottomColor: Theme.colors.lightGray },
 
     bottomSection: { padding: Theme.spacing.md },
-    row: { flexDirection: "row", alignItems: "center" },
+    row: { flexDirection: "row", alignItems: "center", marginBottom: Theme.spacing.md, },
     rowColumn: { marginBottom: Theme.spacing.md },
-    label: { width: "25%", fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold, paddingVertical: Theme.spacing.md },
+    label: { 
+        width: "25%", 
+        fontSize: Theme.fontSizes.base, 
+        fontWeight: Theme.fontWeights.semibold,
+        marginVertical: Theme.spacing.sm 
+    },
     link: { fontSize: Theme.fontSizes.base, textDecorationLine: "underline" },
     list: { paddingRight: Theme.spacing.md },
     noPerformanceText: { fontSize: Theme.fontSizes.base, color: Theme.colors.gray, },

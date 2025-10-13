@@ -25,11 +25,13 @@ type PerformanceCardProps = {
     | "venuePast"
     | "wish"
     | "history"
-    | "calendar";
+    | "calendar"
+    | "location";
   showHeart?: boolean;
   liked?: boolean;
   onPress?: () => void;
   onToggleLike: () => void;
+  selected?: boolean;
 };
 
 export default function PerformanceCard({
@@ -44,10 +46,11 @@ export default function PerformanceCard({
   liked,
   onPress,
   onToggleLike,
+  selected,
 }: PerformanceCardProps) {
   const isHorizontal = type === "today" || type === "venuePast";
   const isUpcomingTicket = type === "upcomingTicket";
-  const isVertical = type === "popular" || type === "new" || type === "mood" || type === "history";
+  const isVertical = type === "popular" || type === "new" || type === "mood" || type === "history" || type === "location";
   const isList = type === "list";
   const isCalendar = type === "calendar";
 
@@ -61,6 +64,7 @@ export default function PerformanceCard({
         isUpcomingTicket && styles.ticketCard,
         isCalendar && styles.calendarCard,
         type === "list" && styles.listCard,
+        selected && { backgroundColor: Theme.colors.themeOrange + "20" }
       ]}
     >
       <Image
@@ -171,6 +175,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
     marginRight: Theme.spacing.md,
+    alignContent: "center",
+    alignItems: "center",
   },
   listCard: {
     flexDirection: "row",
@@ -203,6 +209,7 @@ const styles = StyleSheet.create({
   },
   posterUpcoming: {
     height: "100%",
+    aspectRatio: 3 / 4,
   },
   posterList: {
     marginRight: Theme.spacing.md,
@@ -227,7 +234,6 @@ const styles = StyleSheet.create({
   infoUpcomingTicket: {
     flex: 1,
     flexDirection: "column",
-    justifyContent: "space-between",
   },
   infoList: {
     flex: 1,

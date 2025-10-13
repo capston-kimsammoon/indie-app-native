@@ -43,7 +43,6 @@ export default function MagazineCard({ item, onPress }: MagazineCardProps) {
 const styles = StyleSheet.create({
     card: {
         flexDirection: "row",
-        marginVertical: Theme.spacing.md,
     },
     poster: {
         height: 100,          // 카드 높이 고정

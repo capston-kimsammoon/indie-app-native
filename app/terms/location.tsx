@@ -22,6 +22,9 @@ export default function LocationTermsPage() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.white },
   scroll: { padding: Theme.spacing.md },
-  title: { fontSize: Theme.fontSizes.lg, fontWeight: 'bold', marginBottom: Theme.spacing.md },
+  title: { fontSize: Theme.fontSizes.lg, 
+    fontWeight: Theme.fontWeights.bold,
+    marginBottom: Theme.spacing.md,
+  },
   content: { fontSize: Theme.fontSizes.base, lineHeight: 24 },
 });

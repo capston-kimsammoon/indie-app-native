@@ -55,10 +55,19 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 10,
-    backgroundColor: Theme.colors.lightGray,
+    backgroundColor: Theme.colors.white,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: Theme.spacing.sm,
+    marginVertical: Theme.spacing.sm,
+
+    // iOS 그림자
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+
+    // Android 그림자
+    elevation: 4,
   },
   label: {
     fontSize: Theme.fontSizes.sm,

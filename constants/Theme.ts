@@ -12,7 +12,7 @@ export default {
     gray: '#B0B0B0',
     lightGray: '#E4E4E4',
     tabBarGray: '#F1F1F1',
-    shadow: 'rgba(0,0,0,0.2)',
+    shadow: 'rgba(0,0,0,0.4)',
 
     // 테마 색상
     themeOrange: '#3C9C58',

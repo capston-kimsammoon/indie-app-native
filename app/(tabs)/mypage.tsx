@@ -24,6 +24,7 @@ import {
   withdrawAccount
 } from "@/api/UserApi";
 import { useAuthStore } from "@/src/state/authStore";
+import { checkNotificationPermission } from "@/utils/notificationPermission";
 
 import IcHeartOutline from "@/assets/icons/ic-heart-outline.svg";
 import IcEdit from "@/assets/icons/ic-edit.svg";
@@ -46,16 +47,30 @@ export default function TabMyPageScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+
       (async () => {
-        const me = await fetchUserInfo().catch(() => null);
-        if (cancelled) return;
-        if (!me) {
+        try {
+          const me = await fetchUserInfo();
+
+          if (cancelled) return;
+
+          // 로그인 안 된 경우
+          if (!me) {
+            setUser(null);
+            setHydrated(true);
+            router.replace("/login");
+            return;
+          }
+
+          // 로그인된 사용자 정보 저장
+          setUser(me);
+          setHydrated(true);
+        } catch (err) {
+          console.warn("유저 정보 불러오기 실패:", err);
           setUser(null);
+          setHydrated(true);
           router.replace("/login");
-          return;
         }
-        setUser(me);
-        setHydrated(true);
       })();
       return () => {
         cancelled = true;
@@ -126,15 +141,29 @@ export default function TabMyPageScreen() {
 
   const toggleAlarm = async (v: boolean) => {
     setAlarmOn(v);
+    if (v) {
+      const hasPermission = await checkNotificationPermission();
+      if (!hasPermission) {
+        setAlarmOn(false); // 실제 토글 OFF
+        return;
+      }
+    }
+
     try {
       await updateUserSettings(v, locationOn);
-    } catch {}
+    } catch {
+      setAlarmOn(!v);
+    }
   };
-  const toggleLocation = async (v: boolean) => {
-    setLocationOn(v);
+
+  // "위치 기능을 사용하고 싶다/싫다” 의사만 저장
+  const toggleLocation = async (enabled: boolean) => {
+    setLocationOn(enabled);
     try {
-      await updateUserSettings(alarmOn, v);
-    } catch {}
+      await updateUserSettings(alarmOn, enabled);
+    } catch (e) {
+      Alert.alert("오류", "설정을 저장하는 중 문제가 발생했습니다.");
+    }
   };
 
   const handleLogout = async () => {
@@ -180,9 +209,14 @@ export default function TabMyPageScreen() {
     );
   };
 
-  if (!hydrated && !user)
+  if (!hydrated) {
+    // 초기 로딩 중에는 아무것도 안 보여줌 (로딩 스크린 가능)
     return <View style={{ flex: 1, backgroundColor: Theme.colors.white }} />;
+  }
 
+  if (!user) {
+    return <View style={{ flex: 1, backgroundColor: Theme.colors.white }} />;
+  }
   return (
     <View style={styles.screen}>
       {/* 상단 콘텐츠 */}
@@ -190,25 +224,21 @@ export default function TabMyPageScreen() {
         <View style={styles.profileCard}>
           <View style={styles.profileRow}>
             <Pressable onPress={showProfileOptions} style={styles.avatarWrap}>
-  {profileUri ? (
-    <Image source={{ uri: profileUri }} style={styles.avatar} />
-  ) : (
-    // ✅ 로컬 기본 이미지로 대체
-    <Image
-      source={require("@/assets/images/profile.png")}
-      style={[styles.avatar, styles.avatarPlaceholder]}
-      resizeMode="cover"
-    />
-  )}
-
-  <Pressable onPress={showProfileOptions} style={styles.avatarFab}>
-    <IcSetting
-      width={Theme.iconSizes.sm}
-      height={Theme.iconSizes.sm}
-      fill={Theme.colors.darkGray}
-    />
-  </Pressable>
-</Pressable>
+              {profileUri ? (
+                <Image
+                  source={{ uri: profileUri }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <Image
+                  source={require("@/assets/images/modie-profile.png")}
+                  style={styles.avatar}
+                />
+              )}
+              <Pressable onPress={showProfileOptions} style={styles.avatarFab}>
+                <IcSetting width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} fill={Theme.colors.darkGray} />
+              </Pressable>
+            </Pressable>
 
             <View style={styles.nameWrap}>
               {editing ? (
@@ -221,6 +251,7 @@ export default function TabMyPageScreen() {
                     autoFocus
                     returnKeyType="done"
                     onSubmitEditing={saveNickname}
+                    maxLength={8}
                   />
                   <Pressable style={styles.saveBtn} onPress={saveNickname}>
                     <Text style={styles.saveBtnText}>저장</Text>
@@ -229,12 +260,8 @@ export default function TabMyPageScreen() {
               ) : (
                 <View style={styles.nickRow}>
                   <Text style={styles.nickname}>{nickname}</Text>
-                  <Pressable hitSlop={8} onPress={() => setEditing(true)}>
-                    <IcEdit
-                      width={Theme.iconSizes.sm}
-                      height={Theme.iconSizes.sm}
-                      fill={Theme.colors.darkGray}
-                    />
+                  <Pressable style={styles.editButton} hitSlop={8} onPress={() => setEditing(true)}>
+                    <IcEdit width={Theme.iconSizes.sm} height={Theme.iconSizes.sm} fill={Theme.colors.darkGray} />
                   </Pressable>
                 </View>
               )}
@@ -395,49 +422,17 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.lightGray,
   },
   nameWrap: { flex: 1, justifyContent: "center" },
-  nickRow: { flexDirection: "row", alignItems: "center" },
-  nickname: {
-    fontSize: Theme.fontSizes.lg,
-    fontWeight: Theme.fontWeights.semibold as any,
-    marginRight: Theme.spacing.sm,
-  },
-  editRow: { flexDirection: "row", alignItems: "center" },
-  nickInput: {
-    flex: 1,
-    height: 40,
-    paddingHorizontal: Theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: Theme.colors.lightGray,
-    borderRadius: 10,
-    fontSize: Theme.fontSizes.base,
-    backgroundColor: "#ffffff",
-  },
-  saveBtn: {
-    height: 40,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Theme.colors.lightGray,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: Theme.spacing.sm,
-  },
-  saveBtnText: {
-    fontSize: Theme.fontSizes.base,
-    fontWeight: Theme.fontWeights.semibold as any,
-  },
-  tripletRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginVertical: Theme.spacing.md,
-  },
-  tripletCol: { width: "30%", alignItems: "center" },
-  tripletBtn: { alignItems: "center", justifyContent: "center" },
-  tripletText: {
-    fontSize: Theme.fontSizes.base,
-    color: Theme.colors.darkGray,
-    marginTop: Theme.spacing.sm,
-  },
+  nickRow: { flexDirection: "row", alignItems: "center", alignContent: "center", },
+  nickname: { fontSize: Theme.fontSizes.lg, fontWeight: Theme.fontWeights.semibold as any, marginRight: Theme.spacing.sm },
+  editRow: { flexDirection: "row", alignItems: "center", alignContent: "center", },
+  nickInput: { flex: 1, height: 40, paddingHorizontal: Theme.spacing.sm, borderWidth: 1, borderColor: Theme.colors.lightGray, borderRadius: 10, fontSize: Theme.fontSizes.base, backgroundColor: "#ffffff" },
+  saveBtn: { height: 40, paddingHorizontal: Theme.spacing.md, borderRadius: 10, borderWidth: 1, borderColor: Theme.colors.lightGray, justifyContent: "center", alignItems: "center", marginLeft: Theme.spacing.sm },
+  saveBtnText: { fontSize: Theme.fontSizes.base, fontWeight: Theme.fontWeights.semibold as any },
+  editButton: { alignContent: "center", },
+  tripletRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: Theme.spacing.md },
+  tripletCol: { width: '30%', alignItems: 'center' },
+  tripletBtn: { alignItems: 'center', justifyContent: 'center' },
+  tripletText: { fontSize: Theme.fontSizes.base, color: Theme.colors.darkGray, marginTop: Theme.spacing.sm },
   separator: { borderBottomWidth: 1, borderBottomColor: Theme.colors.lightGray },
   section: { padding: Theme.spacing.md },
   row: {

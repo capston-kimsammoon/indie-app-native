@@ -5,10 +5,13 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  TouchableOpacity,
   ActivityIndicator,
   Platform,
   Alert,
   TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,9 +20,13 @@ import Constants from "expo-constants";
 import { loginWithKakaoNative, emailLogin, loginWithApple } from "@/api/AuthApi";
 import { fetchUserInfo } from "@/api/UserApi";
 import { useAuthStore } from "@/src/state/authStore";
+import * as AppleAuthentication from "expo-apple-authentication";
+import http, { setAccessToken } from "@/api/http";
+import { InteractionManager } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type LoadingKey = null | "kakao" | "apple" | "email" | "guest";
+
 const TERMS_KEY = "terms_agreed_local";
 
 export default function LoginScreen() {
@@ -48,7 +55,6 @@ export default function LoginScreen() {
 
     try {
       const me = await tryOnce();
-
       const termsLocal = await AsyncStorage.getItem(TERMS_KEY);
       const needs = (me as any)?.needs || {};
       const nickname = (me as any)?.nickname ?? null;
@@ -178,7 +184,6 @@ export default function LoginScreen() {
     try {
       setSubmitting(true);
       setLoading("apple");
-
       const { token, isNew, needs, firstAppleAuth } = await loginWithApple();
       useAuthStore.getState().setToken?.(token);
 
@@ -214,114 +219,139 @@ export default function LoginScreen() {
     } finally {
       setLoading(null);
       setSubmitting(false);
-      console.log("[APPLE] finally]");
+      console.log("[APPLE] finally");
     }
-  }, [loading, submitting, finishLoginStrict, router]);
+  }, [loading, submitting, finishLoginStrict]);
 
   const disabled = !!loading || submitting;
 
-  const onFindId = () => Alert.alert("아이디 찾기", "서비스 준비 중입니다.");
-  const onFindPw = () => Alert.alert("비밀번호 찾기", "서비스 준비 중입니다.");
+  // 페이지 이동 함수들 수정
+  const onFindId = () => router.push("/login/find-id");
+  const onFindPw = () => router.push("/login/find-password");
   const onSignup = () => router.push("/login/email");
 
   return (
-    <View style={styles.container}>
-      <View style={styles.formArea}>
-        {/* 아이디 */}
-        <TextInput
-          value={loginId}
-          onChangeText={setLoginId}
-          placeholder="모디 아이디 6~12자"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          style={styles.input}
-          editable={!disabled}
-          returnKeyType="next"
-        />
-        {/* 비밀번호 */}
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          placeholder="영문+숫자+특수문자 6~12자"
-          secureTextEntry
-          style={styles.input}
-          editable={!disabled}
-          returnKeyType="done"
-          onSubmitEditing={onEmailLogin}
-        />
-
-        {/* 자동 로그인 체크 */}
-        <Pressable
-          onPress={() => setAutoLogin((v) => !v)}
-          style={styles.autoLoginRow}
-          disabled={disabled}
-          accessibilityLabel="자동 로그인"
-        >
-          <Ionicons
-            name={autoLogin ? "checkbox" : "square-outline"}
-            size={22}
-            color={Theme.colors.black}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.formArea}>
+          {/* 아이디 */}
+          <TextInput
+            value={loginId}
+            onChangeText={setLoginId}
+            placeholder="아이디"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.input}
+            editable={!disabled}
+            returnKeyType="next"
           />
-          <Text style={styles.autoLoginText}>자동 로그인</Text>
-        </Pressable>
+          {/* 비밀번호 */}
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="영문+숫자+특수문자 6~18자"
+            secureTextEntry
+            style={styles.input}
+            editable={!disabled}
+            returnKeyType="done"
+            onSubmitEditing={onEmailLogin}
+          />
 
-        {/* 로그인 버튼 */}
-        <Pressable
-          onPress={onEmailLogin}
-          style={({ pressed }) => [
-            styles.loginBtn,
-            pressed && { opacity: 0.9 },
-            disabled && { opacity: 0.6 },
-          ]}
-          disabled={disabled}
-          accessibilityLabel="로그인"
-        >
-          <Text style={styles.loginBtnText}>로그인</Text>
-          {loading === "email" && <ActivityIndicator color="#fff" style={{ marginLeft: 8 }} />}
-        </Pressable>
-
-        {/* 하단 링크 */}
-        <View style={styles.linksRow}>
-          <Pressable onPress={onFindId} disabled={disabled}>
-            <Text style={styles.linkText}>아이디 찾기</Text>
-          </Pressable>
-          <Text style={styles.linkDivider}>|</Text>
-          <Pressable onPress={onFindPw} disabled={disabled}>
-            <Text style={styles.linkText}>비밀번호 찾기</Text>
-          </Pressable>
-          <Text style={styles.linkDivider}>|</Text>
-          <Pressable onPress={onSignup} disabled={disabled}>
-            <Text style={styles.linkText}>회원가입</Text>
-          </Pressable>
-        </View>
-
-        {/* 소셜 버튼들 */}
-        <View style={styles.socialRow}>
+          {/* 자동 로그인 체크 */}
           <Pressable
-            onPress={onKakao}
-            disabled={kakaoDisabled || disabled}
-            style={({ pressed }) => [styles.circleBtn, styles.kakaoCircle, pressed && { opacity: 0.85 }]}
-            accessibilityLabel="카카오로 로그인"
+            onPress={() => setAutoLogin((v) => !v)}
+            style={styles.autoLoginRow}
+            disabled={disabled}
+            accessibilityLabel="자동 로그인"
           >
-            <Ionicons name="chatbubble" size={20} color="#181600" />
-            {loading === "kakao" && <ActivityIndicator style={styles.circleSpinner} />}
+            <Ionicons
+              name={autoLogin ? "checkbox" : "square-outline"}
+              size={22}
+              color={Theme.colors.themeOrange}
+            />
+            <Text style={styles.autoLoginText}>자동 로그인</Text>
           </Pressable>
 
-          {Platform.OS === "ios" && (
+          {/* 로그인 버튼 */}
+          <Pressable
+            onPress={onEmailLogin}
+            style={({ pressed }) => [
+              styles.loginBtn,
+              pressed && { opacity: 0.9 },
+              disabled && { opacity: 0.6 },
+            ]}
+            disabled={disabled}
+            accessibilityLabel="로그인"
+          >
+            <Text style={styles.loginBtnText}>로그인</Text>
+            {loading === "email" && <ActivityIndicator color="#fff" style={{ marginLeft: 8 }} />}
+          </Pressable>
+
+          {/* 하단 링크 */}
+          <View style={styles.linksRow}>
+            <TouchableOpacity onPress={onFindId} disabled={disabled}>
+              <Text style={styles.linkText}>아이디 찾기</Text>
+            </TouchableOpacity>
+            <Text style={styles.linkDivider}>|</Text>
+            <TouchableOpacity onPress={onFindPw} disabled={disabled}>
+              <Text style={styles.linkText}>비밀번호 찾기</Text>
+            </TouchableOpacity>
+            <Text style={styles.linkDivider}>|</Text>
+            <TouchableOpacity onPress={onSignup} disabled={disabled}>
+              <Text style={styles.linkText}>회원가입</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 소셜 버튼들 */}
+          <View style={styles.socialRow}>
             <Pressable
-              onPress={onApple}
-              disabled={appleDisabled || disabled}
-              style={({ pressed }) => [styles.circleBtn, styles.appleCircle, pressed && { opacity: 0.9 }]}
-              accessibilityLabel="Apple로 로그인"
+              onPress={onKakao}
+              disabled={kakaoDisabled || disabled}
+              style={({ pressed }) => [styles.circleBtn, styles.kakaoCircle, pressed && { opacity: 0.85 }]}
+              accessibilityLabel="카카오로 로그인"
             >
-              <Ionicons name="logo-apple" size={22} color="#fff" />
-              {loading === "apple" && <ActivityIndicator color="#fff" style={styles.circleSpinner} />}
+              <Ionicons name="chatbubble" size={20} color="#181600" />
+              {loading === "kakao" && <ActivityIndicator style={styles.circleSpinner} />}
             </Pressable>
-          )}
+
+            {Platform.OS === "ios" && (
+              <Pressable
+                onPress={onApple}
+                disabled={appleDisabled || disabled}
+                style={({ pressed }) => [styles.circleBtn, styles.appleCircle, pressed && { opacity: 0.9 }]}
+                accessibilityLabel="Apple로 로그인"
+              >
+                <Ionicons name="logo-apple" size={22} color="#fff" />
+                {loading === "apple" && <ActivityIndicator color="#fff" style={styles.circleSpinner} />}
+              </Pressable>
+            )}
+          </View>
         </View>
+      </ScrollView>
+
+      {/* 하단 버튼 영역 - 고정 */}
+      <View style={styles.bottomBtns}>
+        <Pressable
+          style={({ pressed }) => pressed && { opacity: 0.7 }}
+          onPress={() => router.push("notice")}
+        >
+          <Text style={styles.bottomBtnText}>공지사항</Text>
+        </Pressable>
+        <Text style={styles.verticalDivider}>|</Text>
+        <Pressable
+          style={({ pressed }) => pressed && { opacity: 0.7 }}
+          onPress={() => router.push("/support")}
+        >
+          <Text style={styles.bottomBtnText}>고객센터</Text>
+        </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -332,17 +362,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Theme.colors.white,
+  },
+  scrollContent: {
+    flexGrow: 1,  
+    justifyContent: "center", 
     paddingHorizontal: Theme.spacing.lg,
     paddingTop: Theme.spacing.xl,
+    paddingBottom: Theme.spacing.xl,
   },
-  formArea: { marginTop: Theme.spacing.xl },
+  formArea: { 
+    width: "100%",
+    marginTop: Theme.spacing.xl,
+  },
   input: {
     height: 48,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingHorizontal: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
     fontSize: Theme.fontSizes.base,
     backgroundColor: "#fff",
   },
@@ -350,10 +388,14 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: Theme.spacing.md,
+    gap: 4,
   },
-  autoLoginText: { fontSize: Theme.fontSizes.sm, color: Theme.colors.black },
+  autoLoginText: { 
+    fontSize: Theme.fontSizes.sm, 
+    color: Theme.colors.black, 
+    fontWeight: Theme.fontWeights.regular 
+  },
   loginBtn: {
     height: BTN_H,
     borderRadius: 12,
@@ -375,8 +417,14 @@ const styles = StyleSheet.create({
     gap: 12,
     marginVertical: Theme.spacing.lg,
   },
-  linkText: { color: Theme.colors.gray, fontSize: Theme.fontSizes.sm },
-  linkDivider: { color: Theme.colors.lightGray, fontSize: Theme.fontSizes.sm },
+  linkText: { 
+    color: Theme.colors.gray, 
+    fontSize: Theme.fontSizes.sm 
+  },
+  linkDivider: { 
+    color: Theme.colors.lightGray, 
+    fontSize: Theme.fontSizes.sm 
+  },
   socialRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -398,4 +446,20 @@ const styles = StyleSheet.create({
   },
   kakaoCircle: { backgroundColor: "#FEE500" },
   appleCircle: { backgroundColor: "#000" },
+  bottomBtns: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Theme.spacing.md,
+    paddingVertical: Theme.spacing.md,
+  },
+  bottomBtnText: {
+    fontSize: Theme.fontSizes.sm,
+    color: Theme.colors.darkGray,
+    fontWeight: Theme.fontWeights.regular,
+  },
+  verticalDivider: {
+    color: Theme.colors.lightGray,
+    textAlign: "center",
+  },
 });

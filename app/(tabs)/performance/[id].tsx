@@ -54,7 +54,6 @@ export default function PerformanceDetailPage() {
                 setLiked(data.isLiked);
                 setIsNotified(data.isAlarmed);
                 setLikeCount(data.likeCount || 0);
-                console.log("data: ", data);
             } catch (err) {
                 console.error("공연 상세 조회 실패:", err);
             }
@@ -226,7 +225,7 @@ export default function PerformanceDetailPage() {
                     <View style={styles.row}>
                         <Text style={styles.label}>상세정보</Text>
                         <Pressable onPress={() => Linking.openURL(`https://www.instagram.com/p/${performance.shortcode}`)}>
-                            <Text style={styles.link}>공연 게시물 →</Text>
+                            <Text style={styles.link}>공연 게시물 바로가기 →</Text>
                         </Pressable>
                     </View>
                 )}
@@ -236,7 +235,7 @@ export default function PerformanceDetailPage() {
                     <View style={styles.row}>
                         <Text style={styles.label}>예매링크</Text>
                         <Pressable onPress={() => Linking.openURL(performance.detailLink)}>
-                            <Text style={styles.link}>예매링크 →</Text>
+                            <Text style={styles.link}>예매링크 바로가기 →</Text>
                         </Pressable>
                     </View>
                 )}
@@ -290,6 +289,6 @@ const styles = StyleSheet.create({
     artist: { alignItems: "center", marginRight: Theme.spacing.sm, marginTop: Theme.spacing.md },
     profile: { width: 60, height: 60, borderRadius: 30, margin: Theme.spacing.sm, borderWidth: 1, borderColor: Theme.colors.lightGray },
     artistName: { fontSize: Theme.fontSizes.base, color: Theme.colors.darkGray, textAlign: "center", maxWidth: 80 },
-    link: { fontSize: Theme.fontSizes.base, textDecorationLine: "underline" },
+    link: { fontSize: Theme.fontSizes.base, textDecorationLine: "underline", },
     noArtistText: {fontSize: Theme.fontSizes.base, color: Theme.colors.gray, },
 });

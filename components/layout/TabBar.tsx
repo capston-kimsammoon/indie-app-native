@@ -1,6 +1,7 @@
-import { View, Pressable, StyleSheet, Text } from "react-native";
+import { View, Pressable, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import Theme from "@/constants/Theme";
+import { RFValue } from "react-native-responsive-fontsize";
 
 // 아이콘
 import IcBarHome from "@/assets/icons/ic-bar-home.svg";
@@ -14,7 +15,7 @@ type Props = { pathname: string };
 const TABS = [
   { label: "홈", route: "/", Icon: IcBarHome },
   { label: "캘린더", route: "/calendar", Icon: IcBarCalendar },
-  { label: "주변 공연", route: "/location", Icon: IcBarLocation },
+  { label: "주변 공연", route: "/nearby", Icon: IcBarLocation },
   { label: "스탬프", route: "/stamp", Icon: IcBarStamp },
   { label: "마이페이지", route: "/mypage", Icon: IcBarMypage },
 ];
@@ -42,10 +43,10 @@ export default function TabBar({ pathname }: Props) {
     };
 
     return (
-      <Pressable style={styles.tab} onPress={handlePress}>
+      <TouchableOpacity style={styles.tab} onPress={handlePress}>
         <Icon width={iconSize} height={iconSize} fill={color} />
         <Text style={[styles.label, { color }]}>{label}</Text>
-      </Pressable>
+      </TouchableOpacity>
     );
   };
 
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
     margin: Theme.spacing.xs,
   },
   label: {
-    fontSize: Theme.fontSizes.xs,
+    fontSize: RFValue(9),
     fontWeight: Theme.fontWeights.medium,
     marginTop: Theme.spacing.xs,
   },

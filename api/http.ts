@@ -10,9 +10,9 @@ export const baseURL = (() => {
     config?.baseUrl ||
     process.env.EXPO_PUBLIC_API_BASE_URL ||
     extra.EXPO_PUBLIC_API_BASE_URL ||
-    (Platform.OS === "ios" ? "http://192.168.45.13:8000" :
-    Platform.OS === "android" ? "http://192.168.45.13:8000" :
-    "http://192.168.45.13:8000")
+    (Platform.OS === "ios" ? "http://192.168.35.53:8000" :
+    Platform.OS === "android" ? "http://192.168.35.53:8000" :
+    "http://192.168.35.53:8000")
   );
 })();
 
@@ -52,6 +52,7 @@ http.interceptors.response.use(
   (res) => res,
   (err) => {
     const status = err.response?.status;
+
     const fullUrl = String(err.config?.url || "");
     const path = fullUrl.replace(baseURL, "");
     const silent401 = ["/user/me", "/auth/refresh", "/auth/logout"];

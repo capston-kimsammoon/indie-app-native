@@ -4,14 +4,13 @@ import { useRef, useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 
 import Theme from "@/constants/Theme";
-
 import { getToday, getDateFromDateString, getWeekDayFromDateString } from "@/utils/dateUtils";
 import { fetchTodayPerformances } from "@/api/PerformanceApi";
 import { Performance } from "@/types/performance";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = Theme.spacing.md * 2;
-const BANNER_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING; // wrapper 안에서 딱 맞게
+const BANNER_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING;
 const BANNER_HEIGHT = 160;
 
 export default function TodayPerformances() {
@@ -21,20 +20,12 @@ export default function TodayPerformances() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const IcChevronSize = Theme.iconSizes.md;
-
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       const data = await fetchTodayPerformances();
       setItems(data);
       setLoading(false);
-
-      if (data.length > 0) {
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({ index: 1, animated: false });
-        }, 0);
-      }
     };
     load();
   }, []);
@@ -78,7 +69,14 @@ export default function TodayPerformances() {
     <View style={styles.section}>
       <Text style={styles.title}>{getToday()} 공연</Text>
 
-      <View style={styles.carouselWrapper}>
+      <View
+        style={styles.carouselWrapper}
+        onLayout={() => {
+          if (loopedItems.length > 0) {
+            flatListRef.current?.scrollToIndex({ index: 1, animated: false });
+          }
+        }}
+      >
         <FlatList
           ref={flatListRef}
           data={loopedItems}
@@ -86,21 +84,33 @@ export default function TodayPerformances() {
           showsHorizontalScrollIndicator={false}
           snapToInterval={BANNER_WIDTH}
           decelerationRate="fast"
-          contentContainerStyle={{ paddingHorizontal: 0 }}
-          initialScrollIndex={1}
-          keyExtractor={(_, index) => `today-performance-${index}`}
+          removeClippedSubviews={false}
+          extraData={items}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
           getItemLayout={(_, index) => ({
             length: BANNER_WIDTH,
             offset: BANNER_WIDTH * index,
             index,
           })}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <Pressable onPress={() => router.push(`/performance/${item.id}`)}>
               <View style={[styles.card, { width: BANNER_WIDTH }]}>
-                <Image source={item.thumbnail ? { uri: item.thumbnail } : require('@/assets/images/modie-sample.png')} style={styles.poster} resizeMode="cover" />
+                <Image
+                  key={`img-${item.id}-${index}`}
+                  source={item.thumbnail ? { uri: item.thumbnail } : require('@/assets/images/modie-sample.png')}
+                  style={styles.poster}
+                  resizeMode="cover"
+                  // 이미지 로딩 개선을 위한 props 추가
+                  fadeDuration={0}
+                  defaultSource={require('@/assets/images/modie-sample.png')}
+                />
                 <View style={styles.info}>
-                  <Text style={styles.performanceTitle} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
-                  <Text style={styles.venue} numberOfLines={1} ellipsizeMode="tail">{item.venue}</Text>
+                  <Text style={styles.performanceTitle} numberOfLines={1} ellipsizeMode="tail">
+                    {item.title}
+                  </Text>
+                  <Text style={styles.venue} numberOfLines={1} ellipsizeMode="tail">
+                    {item.venue}
+                  </Text>
                   <Text style={styles.date}>
                     {getDateFromDateString(item.date)} {getWeekDayFromDateString(item.date)}
                   </Text>
@@ -109,13 +119,19 @@ export default function TodayPerformances() {
             </Pressable>
           )}
           onMomentumScrollEnd={onMomentumScrollEnd}
+          // 추가 최적화 props
+          windowSize={5}
+          maxToRenderPerBatch={3}
+          initialNumToRender={3}
         />
 
-        {/* 인디케이터 */}
-        <View style={styles.indicator}>
-          {items.map((_, i) => (
-            <View key={i} style={[styles.line, currentIndex === i && styles.activeLine]} />
-          ))}
+        {/* 인디케이터: 카드 아래 중앙 */}
+        <View style={styles.indicatorWrapper}>
+          <View style={styles.indicator}>
+            {items.map((_, i) => (
+              <View key={i} style={[styles.line, currentIndex === i && styles.activeLine]} />
+            ))}
+          </View>
         </View>
       </View>
     </View>
@@ -147,8 +163,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   poster: {
-    height: "100%",
-    aspectRatio: 3 / 4,
+    width: 100,
+    height: BANNER_HEIGHT,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: Theme.colors.lightGray,
@@ -177,26 +193,16 @@ const styles = StyleSheet.create({
     fontWeight: Theme.fontWeights.regular,
     color: Theme.colors.darkGray,
   },
-  iconLeftButton: {
+  indicatorWrapper: {
     position: "absolute",
-    top: "50%",
-    backgroundColor: "transparent",
-    marginHorizontal: Theme.spacing.md,
-  },
-  iconRightButton: {
-    position: "absolute",
-    top: "50%",
-    backgroundColor: "transparent",
-    marginHorizontal: Theme.spacing.md,
+    bottom: 8,
+    width: "100%",
+    alignItems: "center",
   },
   indicator: {
-    position: "absolute",
-    bottom: Theme.spacing.sm,
-    left: "50%",
     flexDirection: "row",
-    justifyContent: "space-between",
-    width: 100,
-    transform: [{ translateX: -50 }],
+    justifyContent: "center",
+    width: "30%",
   },
   line: {
     flex: 1,

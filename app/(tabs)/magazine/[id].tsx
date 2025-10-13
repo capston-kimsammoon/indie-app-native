@@ -10,13 +10,14 @@ import {
     Dimensions,
 } from "react-native";
 import Theme from "@/constants/Theme";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { fetchMagazineDetail } from "@/api/MagazineApi";
 import { MagazineItem, MagazineContentBlock } from "@/types/magazine";
 import { formatISODateTime } from "@/utils/dateUtils";
 
 export default function MagazineDetailPage() {
     const params = useLocalSearchParams<{ id: string }>();
+    const router = useRouter();
     const id = params.id;
     const [magazine, setMagazine] = useState<MagazineItem | null>(null);
     const [loading, setLoading] = useState(true);
@@ -46,6 +47,9 @@ export default function MagazineDetailPage() {
             )
         );
 
+    // 추천 공연 id는 임시로 magazine.id를 사용 (string → int 변환)
+    const recommendedPerformanceId = magazine.id;
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={{ padding: Theme.spacing.md }}>
             {/* 제목 + 날짜 */}
@@ -68,7 +72,6 @@ export default function MagazineDetailPage() {
                 }
 
                 if (block.type === "image") {
-                    // align 가져오기, 없으면 center
                     const align: "left" | "center" | "right" = (block as any).align ?? "center";
                     return (
                         <View
@@ -84,18 +87,25 @@ export default function MagazineDetailPage() {
                                 source={{ uri: block.value }}
                                 style={{
                                     width: maxImageWidth,
-                                    aspectRatio: 1.5, // 필요 시 서버에서 실제 비율 가져오기
+                                    aspectRatio: 1.5,
                                     borderRadius: 8,
                                 }}
                                 resizeMode="contain"
                             />
                         </View>
-
                     );
                 }
 
                 return null;
             })}
+
+            {/* 하단 추천 공연 링크 */}
+            <Text
+                style={styles.recommendedText}
+                onPress={() => router.push(`/performance/${recommendedPerformanceId}`)}
+            >
+                추천 공연 상세 보기
+            </Text>
         </ScrollView>
     );
 }
@@ -129,5 +139,12 @@ const styles = StyleSheet.create({
         fontSize: Theme.fontSizes.sm,
         color: Theme.colors.black,
         lineHeight: 22,
+    },
+    recommendedText: {
+        fontSize: Theme.fontSizes.base,
+        fontWeight: Theme.fontWeights.semibold,
+        color: Theme.colors.themeOrange,
+        textAlign: "center",
+        marginVertical: Theme.spacing.md,
     },
 });

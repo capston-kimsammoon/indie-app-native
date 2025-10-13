@@ -96,6 +96,13 @@ android {
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+
+        manifestPlaceholders = [
+            NAVER_CLIENT_ID: project.findProperty('NAVER_CLIENT_ID') ?: '',
+            KAKAO_APP_KEY: project.findProperty('KAKAO_APP_KEY') ?: '',
+            KAKAO_SCHEME_KEY: project.findProperty('KAKAO_SCHEME_KEY') ?: '',
+            GOOGLE_MAPS_API_KEY: project.findProperty('GOOGLE_MAPS_API_KEY') ?: ''
+        ]
     }
     signingConfigs {
         debug {

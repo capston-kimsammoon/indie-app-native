@@ -29,7 +29,7 @@ export default function ReviewPrevCard({ userProfile, userName, content, isMoreC
         <View style={styles.card}>
             <View style={styles.profileInfo}>
                 <Image source={userProfile ? {uri: userProfile} : require('@/assets/images/modie-sample.png')} style={styles.profile} />
-                <Text style={styles.userName}>{userName}</Text>
+                <Text style={styles.userName} numberOfLines={1}>{userName}</Text>
             </View>
             <Text style={styles.content} numberOfLines={1}>{content}</Text>
         </View>
@@ -45,7 +45,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: Theme.colors.lightGray,
-        backgroundColor: Theme.colors.white,
     },
     profileInfo: {
         flexDirection: "row",
@@ -61,6 +60,7 @@ const styles = StyleSheet.create({
         borderColor: Theme.colors.lightGray,
     },
     userName: {
+        flexShrink: 1,
         fontSize: Theme.fontSizes.base,
         fontWeight: Theme.fontWeights.semibold,
         color: Theme.colors.black,
@@ -72,10 +72,9 @@ const styles = StyleSheet.create({
     },
     moreCard: {
         width: 80,
-        height: 80,
         justifyContent: "center",
         alignItems: "flex-start",
-        paddingLeft: Theme.spacing.md,
+        padding: Theme.spacing.md,
         borderRadius: 12,
         borderWidth: 1,
         borderColor: Theme.colors.lightGray,

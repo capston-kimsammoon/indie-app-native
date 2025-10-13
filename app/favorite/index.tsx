@@ -195,6 +195,7 @@ export default function FavoritePage() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={<Empty text="찜한 공연이 없어요." />}
           ListFooterComponent={loading ? <ActivityIndicator style={{ margin: Theme.spacing.md }} /> : null}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       ) : (
         <FlatList
@@ -205,6 +206,7 @@ export default function FavoritePage() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={<Empty text="찜한 아티스트가 없어요." />}
           ListFooterComponent={loading ? <ActivityIndicator style={{ margin: Theme.spacing.md }} /> : null}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
     </View>
@@ -220,4 +222,6 @@ const styles = StyleSheet.create({
   activeTabText: { color: Theme.colors.themeOrange, fontWeight: Theme.fontWeights.bold },
   emptyBox: { alignItems: "center", justifyContent: "center", paddingVertical: 24 },
   emptyText: { color: Theme.colors.gray, marginTop: Theme.spacing.md },
+  separator: { height: 1, backgroundColor: Theme.colors.lightGray },
+  
 });

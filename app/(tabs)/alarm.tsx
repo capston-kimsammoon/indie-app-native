@@ -15,6 +15,7 @@ import IcClose from "@/assets/icons/ic-close.svg";
 import { fetchNotifications, removeNotification, markNotificationRead } from "@/api/NotificationApi";
 import { NotificationItem } from "@/types/notification";
 import { formatRelativeTime } from "@/utils/dateUtils";
+import { usePushNotifications } from "@/utils/notificationPermission";
 
 const NotificationCard = ({
   item,
@@ -56,6 +57,16 @@ const NotificationCard = ({
 export default function AlarmScreen() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const router = useRouter();
+
+  usePushNotifications(async (nid, link) => {
+    if (nid) {
+      await markNotificationRead(nid);
+      setNotifications(prev =>
+        prev.map(n => (n.id === nid ? { ...n, is_read: true } : n))
+      );
+    }
+    if (link) router.push(link);
+  });
 
   useEffect(() => {
     loadNotifications();

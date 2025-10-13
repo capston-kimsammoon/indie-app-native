@@ -42,20 +42,22 @@ export default function TabHomeScreen() {
       <MoodPerformances />
 
       {/* 맨 아래 약관 정보 */}
-      {/* 추후 링크 첨부 */}
       <View style={styles.footer}>
-        <Pressable onPress={() => router.push('/terms/service')}>
-          <Text style={styles.footerText}>이용약관</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/terms/location')}>
-          <Text style={styles.footerText}>위치기반서비스이용약관</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/terms/privacy')}>
-          <Text style={styles.footerText}>개인정보처리방침</Text>
-        </Pressable>
-        <Text style={styles.footerText}>© indie corp</Text>
+        <View style={styles.terms}>
+          <Pressable style={styles.termsItem} onPress={() => router.push('/terms/service')}>
+            <Text style={styles.footerText}>이용약관</Text>
+          </Pressable>
+          <Pressable style={styles.termsItem} onPress={() => router.push('/terms/location')}>
+            <Text style={styles.footerText} numberOfLines={1} ellipsizeMode="tail">
+              위치기반서비스이용약관
+            </Text>
+          </Pressable>
+          <Pressable style={styles.termsItem} onPress={() => router.push('/terms/privacy')}>
+            <Text style={styles.footerText}>개인정보처리방침</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.footerText}>© modie corp</Text>
       </View>
-
     </ScrollView>
   );
 }
@@ -75,9 +77,23 @@ const styles = StyleSheet.create({
     borderTopColor: Theme.colors.lightGray,
     alignItems: "center",
   },
+  terms: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Theme.spacing.sm,
+  },
+  termsItem: {
+    flex: 1,           
+  },
   footerText: {
     fontSize: Theme.fontSizes.xs,
     color: Theme.colors.gray,
-    marginVertical: 2,
+    textAlign: "center", 
+  },
+  divider: {
+    color: Theme.colors.gray,
+    textAlign: "center",
+    alignContent: "center",
   },
 });

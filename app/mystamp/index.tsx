@@ -98,30 +98,6 @@ export default function MyStampScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
 
-      {searchOpen && (
-        <View style={styles.searchBarWrap}>
-          <Ionicons name="search" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
-          <TextInput
-            value={q}
-            onChangeText={setQ}
-            placeholder="공연/장소/날짜 검색"
-            placeholderTextColor={Theme.colors.lightGray}
-            style={styles.searchInput}
-            returnKeyType="search"
-            autoFocus
-          />
-          {q.length > 0 ? (
-            <Pressable onPress={() => setQ("")} hitSlop={10}>
-              <Ionicons name="close-circle" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
-            </Pressable>
-          ) : (
-            <Pressable onPress={clearSearch} hitSlop={10}>
-              <Ionicons name="close" size={Theme.iconSizes.sm} color={Theme.colors.lightGray} />
-            </Pressable>
-          )}
-        </View>
-      )}
-
       {loading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator />
@@ -134,11 +110,7 @@ export default function MyStampScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Image
-                source={{
-                  uri:
-                    item.posterUrl ||
-                    "https://dummyimage.com/120x160/eeeeee/aaaaaa&text=NO+IMAGE",
-                }}
+                source={item.posterUrl ? {uri: item.posterUrl} : require('@/assets/images/modie-sample.png')}
                 style={styles.poster}
               />
               <View style={styles.info}>
@@ -189,7 +161,7 @@ const styles = StyleSheet.create({
     color: Theme.colors.black,
   },
 
-  countRow: { paddingHorizontal: Theme.spacing.md, paddingTop: Theme.spacing.sm, paddingBottom: Theme.spacing.sm },
+  countRow: { marginVertical: Theme.spacing.sm },
   countText: { color: Theme.colors.darkGray, fontSize: Theme.fontSizes.sm },
   countNum: { color: Theme.colors.themeOrange, fontWeight: Theme.fontWeights.bold },
 

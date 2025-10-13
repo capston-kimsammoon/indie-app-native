@@ -4,12 +4,37 @@ import { ko } from 'date-fns/locale';
 
 // 요일 한글 매핑
 const WEEKDAYS = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
+const WEEKDAYS_SHORT = ["일", "월", "화", "수", "목", "금", "토"];
 
 export const getToday = () => {
   const today = new Date();
   const month = today.getMonth() + 1; // 월은 0부터 시작
   const date = today.getDate();
   return `${month}월 ${date}일`;
+};
+
+export const getNowTime = (): string => {
+  const now = new Date();
+
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    hour12: true,
+    hour: "numeric",
+    minute: "numeric",
+    timeZone: "Asia/Seoul",
+  }).formatToParts(now);
+
+  let hours = 0;
+  let minutes = 0;
+  let period = "오전";
+
+  for (const part of parts) {
+    if (part.type === "hour") hours = parseInt(part.value, 10);
+    if (part.type === "minute") minutes = parseInt(part.value, 10);
+    if (part.type === "dayPeriod") period = part.value;
+  }
+
+  const paddedMin = String(minutes).padStart(2, "0");
+  return `${period} ${hours}시 ${paddedMin}분`;
 };
 
 export function getDateFromDateString(dateStr: string): string {
@@ -21,12 +46,21 @@ export function getDateFromDateString(dateStr: string): string {
   return `${year}. ${month}. ${day}.`;
 }
 
-
-
 export function getWeekDayFromDateString(dateStr: string): string {
   const date = new Date(dateStr);
-  const dayIndex = date.getDay(); 
+  const dayIndex = date.getDay();
   return WEEKDAYS[dayIndex];
+}
+
+export function formatDateWithShortDay(dateInput: string | Date): string {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  if (isNaN(date.getTime())) return "";
+  
+  const month = date.getMonth() + 1; // 0-based -> 1-based
+  const day = date.getDate();
+  const dayOfWeek = WEEKDAYS_SHORT[date.getDay()];
+  
+  return `${month}월 ${day}일(${dayOfWeek})`;
 }
 
 export const formatDate = (dateInput: string | Date) => {
@@ -121,7 +155,7 @@ export function formatRelativeTime(dateInput: string | Date): string {
   // '어제' 처리
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  
+
   if (targetDate >= startOfYesterday && targetDate < startOfToday) {
     return "어제";
   }

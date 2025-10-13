@@ -74,22 +74,24 @@ function withTimeout<T>(p: Promise<T>, ms = 60000) {
   ]);
 }
 
-/* ========================= 카카오 ========================= */
-export async function loginWithKakaoNative(): Promise<WebTokenPair> {
-  const { data } = await http.get<KakaoLoginInitResponse>("/auth/kakao/login", {
-    params: { client: "native", returnUrl: RETURN_URL },
-  });
-
+/** 네이티브 카카오 로그인 */
+export async function loginWithKakaoNative(): Promise<{ access: string; refresh?: string }> {
+  // returnUrl 파라미터 제거 - 백엔드 설정 사용
+  const { data } = await http.get<{ loginUrl: string; state?: string }>(
+    "/auth/kakao/login",
+    { params: { client: "native" } }
+  );
+  
   const loginUrl = data?.loginUrl;
   if (!loginUrl) throw new Error("kakao_login_url_missing");
-  console.log("[KAKAO] loginUrl =", loginUrl, " state =", data?.state);
-  console.log("[RETURN_URL]", RETURN_URL);
+  console.log("[KAKAO] loginUrl =", loginUrl);
 
-  const result = await WebBrowser.openAuthSessionAsync(loginUrl, RETURN_URL);
+  const DEEP_LINK = "indieapp://auth/callback";
+  
+  const result = await WebBrowser.openAuthSessionAsync(loginUrl, DEEP_LINK);
   console.log("[AUTH RESULT]", result);
 
   let urlFromAuth: string | null = result.type === "success" ? result.url : null;
-  console.log("[CALLBACK URL]", urlFromAuth);
 
   if (!urlFromAuth) {
     console.log("[AUTH] waiting deep link…");
@@ -102,18 +104,8 @@ export async function loginWithKakaoNative(): Promise<WebTokenPair> {
   if (q.error) throw new Error(q.error_description || q.error);
   console.log("[KAKAO] parsed =", q);
 
-  let access = q.access || q.accessToken || q.jwt || null;
-  let refresh = q.refresh || q.refreshToken || null;
-
-  if (!access && q.code) {
-    const resp = await http.get("/auth/kakao/callback", {
-      params: { code: q.code, state: q.state },
-    });
-    const body = resp?.data || {};
-    access = body.accessToken || body.access || body.token || null;
-    refresh = body.refreshToken || body.refresh || null;
-    console.log("[KAKAO] exchanged token len =", access?.length || 0);
-  }
+  const access = q.access || q.accessToken || q.jwt;
+  const refresh = q.refresh || q.refreshToken;
 
   if (!access) throw new Error("no_access_token_from_callback");
 
@@ -121,13 +113,58 @@ export async function loginWithKakaoNative(): Promise<WebTokenPair> {
   return { access, refresh: refresh || undefined };
 }
 
-/* ========================= 이메일 ========================= */
-export async function emailSignup(
+export async function emailSignup(email: string, password: string, nickname?: string) {
+  const { data } = await http.post("/auth/email/signup", { email, password, nickname });
+  const token = data?.accessToken || data?.access;
+  if (token) setAccessToken(token);
+  return data;
+}
+
+export async function emailLogin(loginId: string, password: string) {
+  const { data } = await http.post("/auth/email/login", {
+    login_id: loginId,
+    password,
+  });
+  const token = data?.accessToken || data?.access;
+  if (token) setAccessToken(token);
+  return data;
+}
+
+// 이메일 인증 코드 발송
+export async function sendVerificationCode(email: string, purpose: "signup" | "reset_password") {
+  const { data } = await http.post("/auth/email/send-verification", {
+    email,
+    purpose,
+  });
+  return data;
+}
+
+// 이메일 인증 코드 확인
+export async function verifyEmailCode(email: string, code: string) {
+  const { data } = await http.post("/auth/email/verify-code", {
+    email,
+    code,
+  });
+  return data;
+}
+
+// 로그인 ID 중복 확인
+export async function checkLoginId(loginId: string) {
+  const { data } = await http.get("/auth/check-login-id", {
+    params: { login_id: loginId },
+  });
+  return data;
+}
+
+// 이메일 회원가입 (인증 후)
+export async function emailSignupVerified(
+  loginId: string,
   email: string,
   password: string,
   nickname?: string
-): Promise<EmailAuthResponse> {
-  const { data } = await http.post<EmailAuthResponse>("/auth/email/signup", {
+) {
+  const { data } = await http.post("/auth/email/signup", {
+    login_id: loginId,
     email,
     password,
     nickname,
@@ -137,18 +174,21 @@ export async function emailSignup(
   return data;
 }
 
-export async function emailLogin(
-  email: string,
-  password: string
-): Promise<EmailAuthResponse> {
-  const { data } = await http.post<EmailAuthResponse>("/auth/email/login", {
+// 비밀번호 재설정
+export async function resetPassword(email: string, newPassword: string) {
+  const { data } = await http.post("/auth/email/reset-password", {
     email,
-    password,
+    new_password: newPassword,
   });
-  const token = data?.accessToken || data?.access;
-  if (token) setAccessToken(token);
   return data;
 }
+
+// 아이디 찾기 (새로 추가)
+export async function findLoginIdByEmail(email: string) {
+  const { data } = await http.post("/auth/email/find-login-id", { email });
+  return data;
+}
+
 
 /* ========================= 애플(Web) ========================= */
 export async function loginWithAppleWeb(): Promise<WebTokenPair> {
@@ -177,8 +217,6 @@ export async function loginWithAppleWeb(): Promise<WebTokenPair> {
 }
 
 /* ========================= 애플(Native) ========================= */
-
-
 type AppleCallbackNeeds = {
   nickname?: boolean;
   terms?: boolean;
