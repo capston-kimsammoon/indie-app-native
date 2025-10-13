@@ -6,7 +6,6 @@ export function decodeJwtPayload<T = any>(jwt: string): T | null {
     const payload = jwt.split(".")[1];
     if (!payload) return null;
 
-    // base64url -> base64 (+ 패딩 보정)
     let base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
     const pad = base64.length % 4;
     if (pad === 2) base64 += "==";
