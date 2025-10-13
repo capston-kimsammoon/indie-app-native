@@ -110,3 +110,14 @@ export async function withdrawAccount() {
     clearAccessToken();
   }
 }
+
+export async function agreeTerms(): Promise<{ ok: boolean }> {
+  try {
+    const { data } = await http.post("/auth/agree-terms", {
+      age: true, service: true, privacy: true,
+    });
+    return data ?? { ok: true };
+  } catch (e) {
+    return parseAxiosErr(e);
+  }
+}
