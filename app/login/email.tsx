@@ -22,6 +22,7 @@ import EmailVerification from "@/components/auth/EmailVerification";
 
 type Step = "input" | "verify";
 
+
 export default function EmailSignupScreen() {
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);

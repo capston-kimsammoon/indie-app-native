@@ -17,30 +17,17 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Theme from "@/constants/Theme";
 import Constants from "expo-constants";
-import { loginWithKakaoNative, emailLogin } from "@/api/AuthApi";
+import { loginWithKakaoNative, emailLogin, loginWithApple } from "@/api/AuthApi";
 import { fetchUserInfo } from "@/api/UserApi";
 import { useAuthStore } from "@/src/state/authStore";
 import * as AppleAuthentication from "expo-apple-authentication";
 import http, { setAccessToken } from "@/api/http";
 import { InteractionManager } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type LoadingKey = null | "kakao" | "apple" | "email" | "guest";
 
-const withTimeout = <T,>(p: Promise<T>, ms = 15000) =>
-  Promise.race<T>([
-    p,
-    new Promise<T>((_, rej) =>
-      setTimeout(
-        () =>
-          rej(
-            Object.assign(new Error("apple_signin_timeout"), {
-              code: "apple_signin_timeout",
-            })
-          ),
-        ms
-      )
-    ),
-  ]);
+const TERMS_KEY = "terms_agreed_local";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -68,6 +55,21 @@ export default function LoginScreen() {
 
     try {
       const me = await tryOnce();
+      const termsLocal = await AsyncStorage.getItem(TERMS_KEY);
+      const needs = (me as any)?.needs || {};
+      const nickname = (me as any)?.nickname ?? null;
+
+      if (needs.terms || !termsLocal) {
+        console.log("[ONBOARD] route -> /onboarding/terms (local)");
+        router.replace("/onboarding/terms");
+        return;
+      }
+      if (needs.profile || !nickname) {
+        console.log("[ONBOARD] route -> /onboarding/profile");
+        router.replace("/onboarding/profile");
+        return;
+      }
+
       setUser(me);
       router.replace("/");
       console.log("[ME] OK", me?.id, me?.email);
@@ -75,8 +77,8 @@ export default function LoginScreen() {
     } catch (e: any) {
       const s = e?._status;
       if (s === 428 || s === 409) {
-        Alert.alert("회원가입", "가입이 완료되지 않았습니다. 추가 정보를 입력해 주세요.");
-        router.replace("/signup/complete");
+        const needs = e?.response?.data?.needs || {};
+        router.replace(needs.terms ? "/onboarding/terms" : "/onboarding/profile");
         return;
       }
     }
@@ -85,6 +87,22 @@ export default function LoginScreen() {
     try {
       const me = await fetchUserInfo();
       if (!me) throw new Error("no_me_retry");
+
+      const termsLocal = await AsyncStorage.getItem(TERMS_KEY);
+      const needs2 = (me as any)?.needs || {};
+      const nickname2 = (me as any)?.nickname ?? null;
+
+      if (needs2.terms || !termsLocal) {
+        console.log("[ONBOARD] (retry) route -> /onboarding/terms");
+        router.replace("/onboarding/terms");
+        return;
+      }
+      if (needs2.profile || !nickname2) {
+        console.log("[ONBOARD] (retry) route -> /onboarding/profile");
+        router.replace("/onboarding/profile");
+        return;
+      }
+
       setUser(me);
       router.replace("/");
       console.log("[ME] OK after retry", me?.id, me?.email);
@@ -109,9 +127,18 @@ export default function LoginScreen() {
       }
       setLoading("email");
       await emailLogin(loginId.trim(), password.trim());
-      await finishLoginStrict();
+
+      await AsyncStorage.removeItem(TERMS_KEY);
+
+      const me = await fetchUserInfo().catch(() => null);
+      if (me?.nickname) {
+        await AsyncStorage.setItem(TERMS_KEY, "1");
+        await finishLoginStrict();
+      } else {
+        router.replace("/onboarding/terms");
+      }
     } catch (e: any) {
-      Alert.alert("로그인 실패", e?.response?.data?.detail || e?.message || "로그인 실패");
+      Alert.alert("이메일 로그인", e?.response?.data?.detail || e?.message || "로그인 실패");
     } finally {
       setLoading(null);
     }
@@ -122,16 +149,22 @@ export default function LoginScreen() {
       setLoading("kakao");
       const { access } = await loginWithKakaoNative();
       useAuthStore.getState().setToken?.(access);
-      await finishLoginStrict();
+
+      await AsyncStorage.removeItem(TERMS_KEY);
+
+      const me = await fetchUserInfo().catch(() => null);
+      if (me?.nickname) {
+        await AsyncStorage.setItem(TERMS_KEY, "1");
+        await finishLoginStrict();
+      } else {
+        router.replace("/onboarding/terms");
+      }
     } catch (e: any) {
       Alert.alert("카카오 로그인", e?.message || "로그인에 실패했어요.");
     } finally {
       setLoading(null);
     }
   }, [finishLoginStrict]);
-
-  const SSO_TIMEOUT_MS = 60000;
-  const nextTick = () => new Promise((r) => requestAnimationFrame(() => r(null)));
 
   const onApple = useCallback(async () => {
     const bundleId =
@@ -142,100 +175,36 @@ export default function LoginScreen() {
     console.log("[APPLE] onApple pressed, loading=", loading, "submitting=", submitting);
 
     if (Platform.OS !== "ios") {
-      console.log("[APPLE] GUARD non-iOS");
       Alert.alert("Apple 로그인", "이 기능은 iOS에서만 지원됩니다.");
       return;
     }
-    if (submitting) {
-      console.log("[APPLE] GUARD submitting=true → return");
-      return;
-    }
-    if (loading && loading !== "apple") {
-      console.log("[APPLE] GUARD loading=", loading, " → return");
-      return;
-    }
+    if (submitting) return;
+    if (loading && loading !== "apple") return;
 
     try {
       setSubmitting(true);
       setLoading("apple");
-
-      const available = await AppleAuthentication.isAvailableAsync();
-      console.log("[APPLE] available?", available, "| bundleId =", bundleId);
-      if (!available) {
-        Alert.alert("Apple 로그인", "이 빌드에서는 Apple 로그인을 쓸 수 없어요(Dev Client/권한 확인).");
-        return;
-      }
-
-      console.log("[APPLE] WAIT nextTick");
-      await nextTick();
-      console.log("[APPLE] WAIT interactions");
-      await InteractionManager.runAfterInteractions(() => Promise.resolve());
-
-      console.log("[APPLE] BEFORE signInAsync (about to call)");
-      const startedAt = Date.now();
-
-      const cred = await withTimeout(
-        AppleAuthentication.signInAsync({ requestedScopes: [] }),
-        60000
-      );
-      console.log("AFTER signInAsync(empty scopes)", cred);
-
-      console.log("[APPLE] AFTER signInAsync in", Date.now() - startedAt, "ms");
-      const idToken = (cred as any)?.identityToken as string | undefined;
-      const authCode = cred?.authorizationCode ?? null;
-
-      console.log(
-        "[APPLE] cred summary:",
-        JSON.stringify(
-          {
-            hasIdToken: !!idToken,
-            idTokenLen: idToken?.length || 0,
-            hasAuthCode: !!authCode,
-            email: (cred as any)?.email ?? null,
-            givenName: cred?.fullName?.givenName ?? null,
-            familyName: cred?.fullName?.familyName ?? null,
-            user: (cred as any)?.user ?? null,
-          },
-          null,
-          2
-        )
-      );
-
-      if (!idToken) {
-        throw Object.assign(new Error("apple_auth_no_id_token"), { code: "apple_auth_no_id_token" });
-      }
-
-      console.log("[APPLE] POST /auth/apple/callback");
-      const resp = await http.post("/auth/apple/callback", {
-        identityToken: idToken,
-        authorizationCode: authCode,
-        user: (cred as any).user ?? null,
-        email: (cred as any).email ?? null,
-        givenName: cred.fullName?.givenName ?? null,
-        familyName: cred.fullName?.familyName ?? null,
-        mode: "json",
-        state: "native:" + Math.random().toString(36).slice(2, 10),
-      });
-      const data = resp?.data || {};
-      const token = data?.accessToken || data?.access || data?.token;
-      console.log("[APPLE] callback ok, tokenLen=", token?.length || 0);
-      if (!token) throw new Error("no_access_token_from_callback");
-
-      setAccessToken(token);
+      const { token, isNew, needs, firstAppleAuth } = await loginWithApple();
       useAuthStore.getState().setToken?.(token);
-      await finishLoginStrict();
+
+      await AsyncStorage.removeItem(TERMS_KEY);
+
+      const me = await fetchUserInfo().catch(() => null);
+   if (firstAppleAuth || isNew || !me?.nickname) {
+     console.log("[ONBOARD] apple first/new -> terms");
+     router.replace("/onboarding/terms");
+     return;
+   }
+
+      if (me?.nickname) {
+        await AsyncStorage.setItem(TERMS_KEY, "1");
+        await finishLoginStrict();
+      } else {
+        router.replace("/onboarding/terms");
+      }
     } catch (e: any) {
       console.log("[APPLE] ERROR", e?.code || e?.name, e?.message, e);
       if (e?.code === "apple_signin_timeout") {
-        Alert.alert(
-          "Apple 로그인",
-          [
-            "로그인 창이 뜨지 않았습니다.",
-            "1) 설정 > Apple ID > 'Apple ID를 사용하는 앱'에서 이 앱 삭제",
-            "2) 기기 재부팅 후 재시도",
-            "3) Dev Client를 usesAppleSignIn: true로 클린 재빌드",
-          ].join("\n")
-        );
         return;
       }
       if (e?.code === "ERR_REQUEST_CANCELED" || e?.code === "ASAuthorizationErrorCanceled") return;

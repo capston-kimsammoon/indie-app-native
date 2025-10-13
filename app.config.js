@@ -31,9 +31,16 @@ export default {
     ios: {
       bundleIdentifier: "com.kimthreemun.indieapp",
       supportsTablet: true,
+      usesAppleSignIn: true,
+      entitlements: {
+        "com.apple.developer.applesignin": ["Default"]
+      },
       infoPlist: {
         // 구글 맵 API Key
         GMSApiKey: process.env.GOOGLE_MAPS_API_KEY,
+
+        // 네이버 지도 키
+        ncpKeyId: process.env.NAVER_MAP_KEY,
 
         // 카카오 URL 스킴 등록
         CFBundleURLTypes: [
@@ -84,6 +91,7 @@ export default {
     plugins: [
       "expo-asset",
       "expo-secure-store",
+      "expo-apple-authentication",
       [
         "expo-build-properties",
         {

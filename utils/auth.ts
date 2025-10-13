@@ -7,9 +7,8 @@ export const getUserIdFromToken = (token: string): number | null => {
   const payload = decodeJwtPayload<{ sub?: string | number }>(token);
   if (!payload?.sub) return null;
 
-  // 서버가 sub를 문자열/숫자 섞어서 줄 수 있으므로 보수적으로 파싱
   const n = typeof payload.sub === "number" ? payload.sub : parseInt(payload.sub, 10);
-  return Number.isFinite(n) ? n : null; // UUID 같은 비숫자 sub면 null
+  return Number.isFinite(n) ? n : null;
 };
 
 export function requireLogin(action: () => void): boolean {

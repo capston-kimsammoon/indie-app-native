@@ -1,5 +1,5 @@
 // app/api/http.ts
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig,AxiosHeaders } from "axios";
 import config from "./config";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
@@ -16,64 +16,67 @@ export const baseURL = (() => {
   );
 })();
 
-// axios 인스턴스
 const http = axios.create({
   baseURL,
   timeout: config?.timeout ?? 15000,
   withCredentials: Platform.OS === "web",
 });
 
-// 토큰 상태 관리
 let ACCESS_TOKEN: string | null = null;
 
 export function setAccessToken(token: string | null) {
   ACCESS_TOKEN = token;
   if (ACCESS_TOKEN) {
     http.defaults.headers.common.Authorization = `Bearer ${ACCESS_TOKEN}`;
-    if (Platform.OS !== "web") {
-      (http.defaults.headers.common as any).Cookie = `access_token=${ACCESS_TOKEN}`;
-    }
+    delete (http.defaults.headers.common as any).Cookie;
   } else {
     delete http.defaults.headers.common.Authorization;
     delete (http.defaults.headers.common as any).Cookie;
   }
 }
 
-export const getAccessToken = () => ACCESS_TOKEN;
-export const clearAccessToken = () => setAccessToken(null);
-
-// 요청 인터셉터
-http.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
-  cfg.headers = { ...(cfg.headers || {}), "X-Client": "rn" };
-  // console.log("HTTP REQ headers:", cfg.headers);
-  
+http.interceptors.request.use((cfg) => {
+  const h = AxiosHeaders.from(cfg.headers || {});
+  h.set("X-Client", "rn");
   if (ACCESS_TOKEN) {
-    cfg.headers.Authorization = `Bearer ${ACCESS_TOKEN}`;
-    if (Platform.OS !== "web") {
-      cfg.headers.Cookie = `access_token=${ACCESS_TOKEN}`;
-    }
+    h.set("Authorization", `Bearer ${ACCESS_TOKEN}`);
+    if (Platform.OS !== "web") h.delete?.("Cookie");
   }
-
+  cfg.headers = h;
+  console.log("HTTP REQ headers:", h);
+  console.log("[REQ]", cfg.method?.toUpperCase(), cfg.url, "Authorization=", h.get("Authorization"));
   return cfg;
 });
 
-// 응답 인터셉터
 http.interceptors.response.use(
   (res) => res,
-  (err: AxiosError<any>) => {
+  (err) => {
     const status = err.response?.status;
-    if (status === 401 || status === 403) {
-      // Axios 기본 에러 로그 막기
-      if (__DEV__) {
-        console.log("[INFO] Unauthenticated, skipping console.error");
-      }
-      return Promise.reject(err);
+
+    const fullUrl = String(err.config?.url || "");
+    const path = fullUrl.replace(baseURL, "");
+    const silent401 = ["/user/me", "/auth/refresh", "/auth/logout"];
+
+    if (status === 401 && silent401.includes(path)) {
+      return Promise.reject(Object.assign(err, { _silent: true }));
     }
+
+    if (path === "/user/me" && (err.config?.method || "").toUpperCase() === "PATCH") return Promise.reject(Object.assign(err, { _silent: true }));
+
+    if (status === 428 && path === "/auth/apple/callback") {
+      return Promise.reject(Object.assign(err, { _silent: true, code: "SIGNUP_REQUIRED" }));
+    }
+    if (path === "/user/me" && (err.config?.method || "").toUpperCase() === "GET") {
+        return Promise.reject(Object.assign(err, { _silent: true, code: "COMPLETE_REQUIRED" }));
+      }
     const method = (err.config?.method || "GET").toUpperCase();
-    const url = err.config?.url || "(unknown)";
-    console.error(`[HTTP ${status ?? "ERR"}] ${method} ${url}`, err.response?.data ?? err.message);
+    const detail = err.response?.data?.detail || err.message;
+    console.error(`[HTTP ${status ?? "ERR"}] ${method} ${path} - ${detail}`);
     return Promise.reject(err);
   }
 );
 
+
+export const getAccessToken = () => ACCESS_TOKEN;
+export const clearAccessToken = () => setAccessToken(null);
 export default http;
