@@ -11,9 +11,14 @@ export default {
     plugins: [
       "expo-asset",
       "expo-secure-store",
+      "expo-apple-authentication",
     ],
     ios: {
       "bundleIdentifier": "com.kimthreemun.indieapp",
+      entitlements: {
+        "com.apple.developer.applesignin": ["Default"]
+      },
+      usesAppleSignIn: true,
       infoPlist: {
         ncpKeyId: process.env.NAVER_MAP_KEY,
         "LSApplicationQueriesSchemes": [
