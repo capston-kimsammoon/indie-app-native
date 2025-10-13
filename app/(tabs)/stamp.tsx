@@ -229,8 +229,8 @@ export default function StampPage() {
           ))}
 
           {uiStamps.length === 0 && !error && (
-            <View style={{ alignItems: "center", marginTop: 40 }}>
-              <Text style={{ color: Theme.colors.gray }}>스탬프가 없습니다</Text>
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>스탬프를 모아보세요!</Text>
             </View>
           )}
         </ScrollView>
@@ -506,5 +506,17 @@ const styles = StyleSheet.create({
   sheetApplyText: {
     color: Theme.colors.white,
     fontWeight: Theme.fontWeights.semibold,
+  },
+
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 400,
+  },
+  emptyText: {
+    color: Theme.colors.gray,
+    textAlign: "center",
+    fontSize: Theme.fontSizes.base,
   },
 });

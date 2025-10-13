@@ -1,18 +1,17 @@
+// app/onboarding/profile.tsx
 import React, { useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import Theme from "@/constants/Theme";
-import { updateNickname } from "@/api/UserApi";
-import { fetchUserInfo } from "@/api/UserApi";
+import { completeProfile, fetchUserInfo } from "@/api/UserApi";
 import { useAuthStore } from "@/src/state/authStore";
 
 const NICK_MAX = 10;
-// 공백/특수문자/이모지 제외, 한/영/숫자만 허용
 const NICK_RE = /^[0-9A-Za-z가-힣]+$/u;
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const setUser = useAuthStore((s) => s.setUser);
+  const { user, setUser } = useAuthStore();
   const [nickname, setNickname] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -22,22 +21,51 @@ export default function ProfileScreen() {
     return NICK_RE.test(nickname);
   }, [nickname]);
 
-  const hint =
-    "닉네임은 한/영/숫자만, 최대 10자\n(공백 · 특수문자 · 이모티콘 불가)";
+  const hint = "닉네임은 한/영/숫자만, 최대 10자\n(공백 · 특수문자 · 이모티콘 불가)";
 
   const onSave = async () => {
     if (!valid) return;
+    
     try {
       setSaving(true);
-      await updateNickname(nickname.trim());
-      const me = await fetchUserInfo().catch(() => null);
-      if (me) setUser(me);
-      router.replace("/");
+      console.log("[PROFILE] Current user:", user);
+      console.log("[PROFILE] Completing profile with nickname:", nickname);
+      
+      // 프로필 완료 API 호출
+      const result = await completeProfile(true, nickname.trim());
+      console.log("[PROFILE] Complete result:", result);
+      
+      // 사용자 정보 업데이트
+      if (result?.user) {
+        console.log("[PROFILE] Updating user with:", result.user);
+        setUser(result.user);
+        
+        // 상태가 제대로 업데이트되었는지 확인
+        setTimeout(() => {
+          const currentUser = useAuthStore.getState().user;
+          console.log("[PROFILE] User after update:", currentUser);
+          console.log("[PROFILE] is_completed:", currentUser?.is_completed);
+        }, 50);
+      } else {
+        console.log("[PROFILE] No user in result, fetching...");
+        const me = await fetchUserInfo();
+        console.log("[PROFILE] Fetched user:", me);
+        if (me) {
+          setUser(me);
+        }
+      }
+      
+      // 네비게이션
+      console.log("[PROFILE] Navigating to home...");
+      setTimeout(() => {
+        router.replace("/");
+      }, 200);  
+      
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "닉네임 저장 실패";
-      Alert.alert("프로필", msg);
-    } finally {
+      console.error("[PROFILE] Error:", e);
       setSaving(false);
+      const msg = e?.response?.data?.detail || e?.message || "프로필 설정 실패";
+      Alert.alert("프로필", msg);
     }
   };
 
@@ -56,6 +84,7 @@ export default function ProfileScreen() {
         style={styles.input}
         returnKeyType="done"
         onSubmitEditing={onSave}
+        editable={!saving}
       />
 
       <Text style={styles.counter}>

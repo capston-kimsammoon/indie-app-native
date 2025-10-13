@@ -163,14 +163,28 @@ export async function emailSignupVerified(
   password: string,
   nickname?: string
 ) {
+  console.log("[API] Email signup request:", { loginId, email, nickname });
+  
   const { data } = await http.post("/auth/email/signup", {
     login_id: loginId,
     email,
     password,
     nickname,
   });
+  
+  console.log("[API] Signup response:", data);
+  
+  // 토큰 저장
   const token = data?.accessToken || data?.access;
-  if (token) setAccessToken(token);
+  console.log("[API] Access token:", token ? "exists" : "missing");
+  
+  if (token) {
+    setAccessToken(token);
+    console.log("[API] Token saved successfully");
+  } else {
+    console.warn("[API] No access token in response!");
+  }
+  
   return data;
 }
 

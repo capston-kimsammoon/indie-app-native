@@ -128,7 +128,7 @@ export default function MyStampScreen() {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={{ alignItems: "center", marginTop: 40 }}>
-              <Text style={{ color: Theme.colors.lightGray }}>수집한 스탬프가 없어요</Text>
+              <Text style={{ color: Theme.colors.lightGray }}>수집한 스탬프가 없습니다</Text>
             </View>
           }
         />

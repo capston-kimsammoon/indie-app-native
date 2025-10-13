@@ -5,6 +5,9 @@ export type User = {
   profile_url?: string | null;
   alarm_enabled?: boolean | null;
   location_enabled?: boolean | null;
+  is_completed?: boolean;
+  email?: string;
+  login_id?: string;
   // 필요 시 필드 추가...
   [k: string]: any;
 };

@@ -21,18 +21,14 @@ import { loginWithKakaoNative, emailLogin, loginWithApple } from "@/api/AuthApi"
 import { fetchUserInfo } from "@/api/UserApi";
 import { useAuthStore } from "@/src/state/authStore";
 import * as AppleAuthentication from "expo-apple-authentication";
-import http, { setAccessToken } from "@/api/http";
-import { InteractionManager } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type LoadingKey = null | "kakao" | "apple" | "email" | "guest";
 
-const TERMS_KEY = "terms_agreed_local";
-
 export default function LoginScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState<LoadingKey>(null);
-  const setUser = useAuthStore((s) => s.setUser);
+  const { setUser, setToken } = useAuthStore();
   const [submitting, setSubmitting] = useState(false);
 
   const emailDisabled = submitting || loading === "kakao" || loading === "apple";
@@ -42,172 +38,139 @@ export default function LoginScreen() {
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [autoLogin, setAutoLogin] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
-  const finishLoginStrict = useCallback(async () => {
-    const tryOnce = async () => {
-      const me = await fetchUserInfo().catch((e: any) => {
-        (e as any)._status = e?.status || e?.response?.status;
-        throw e;
-      });
-      if (!me) throw Object.assign(new Error("no_me"), { _status: 0 });
-      return me;
-    };
-
+  const finishLogin = useCallback(async (token: string) => {
     try {
-      const me = await tryOnce();
-      const termsLocal = await AsyncStorage.getItem(TERMS_KEY);
-      const needs = (me as any)?.needs || {};
-      const nickname = (me as any)?.nickname ?? null;
-
-      if (needs.terms || !termsLocal) {
-        console.log("[ONBOARD] route -> /onboarding/terms (local)");
-        router.replace("/onboarding/terms");
-        return;
-      }
-      if (needs.profile || !nickname) {
-        console.log("[ONBOARD] route -> /onboarding/profile");
-        router.replace("/onboarding/profile");
-        return;
-      }
-
-      setUser(me);
-      router.replace("/");
-      console.log("[ME] OK", me?.id, me?.email);
-      return;
-    } catch (e: any) {
-      const s = e?._status;
-      if (s === 428 || s === 409) {
-        const needs = e?.response?.data?.needs || {};
-        router.replace(needs.terms ? "/onboarding/terms" : "/onboarding/profile");
-        return;
-      }
-    }
-
-    await new Promise((r) => setTimeout(r, 400));
-    try {
+      console.log("[LOGIN] Fetching user info...");
       const me = await fetchUserInfo();
-      if (!me) throw new Error("no_me_retry");
+      console.log("[LOGIN] User info:", me);
 
-      const termsLocal = await AsyncStorage.getItem(TERMS_KEY);
-      const needs2 = (me as any)?.needs || {};
-      const nickname2 = (me as any)?.nickname ?? null;
-
-      if (needs2.terms || !termsLocal) {
-        console.log("[ONBOARD] (retry) route -> /onboarding/terms");
-        router.replace("/onboarding/terms");
-        return;
-      }
-      if (needs2.profile || !nickname2) {
-        console.log("[ONBOARD] (retry) route -> /onboarding/profile");
-        router.replace("/onboarding/profile");
-        return;
+      if (!me) {
+        throw new Error("사용자 정보를 가져올 수 없습니다.");
       }
 
+      // 사용자 정보 저장
       setUser(me);
-      router.replace("/");
-      console.log("[ME] OK after retry", me?.id, me?.email);
-    } catch (e: any) {
-      const s = e?.response?.status;
-      const detail = e?.response?.data?.detail || e?.message || "사용자 정보를 가져오지 못했어요.";
-      console.log("[ME] FAIL after retry", s, detail);
-      if (s === 401 || s === 403) {
-        Alert.alert("로그인", "세션이 유효하지 않습니다. 다시 시도해 주세요.");
+
+      // 온보딩 완료 여부 확인
+      if (me.is_completed === false) {
+        console.log("[LOGIN] Profile incomplete, navigating to onboarding...");
+        setTimeout(() => {
+          router.replace("/onboarding/terms");
+        }, 100);
       } else {
-        Alert.alert("로그인", detail);
+        console.log("[LOGIN] Profile completed, navigating to home...");
+        setTimeout(() => {
+          router.replace("/");
+        }, 100);
       }
+    } catch (e: any) {
+      console.error("[LOGIN] Finish login error:", e);
+      const detail = e?.response?.data?.detail || e?.message || "사용자 정보를 가져올 수 없습니다.";
+      Alert.alert("로그인", detail);
     }
   }, [router, setUser]);
 
-  const onEmailLogin = useCallback(async () => {
-    if (submitting) return;
+  // 이메일 로그인
+  const onEmailLogin = async () => {
+    if (!loginId.trim() || !password) {
+      Alert.alert("로그인", "아이디와 비밀번호를 입력해주세요.");
+      return;
+    }
+
     try {
-      if (!loginId.trim() || !password.trim()) {
-        Alert.alert("로그인", "아이디/비밀번호를 입력해 주세요.");
-        return;
-      }
       setLoading("email");
-      await emailLogin(loginId.trim(), password.trim());
+      console.log("[LOGIN] Email login...");
 
-      await AsyncStorage.removeItem(TERMS_KEY);
+      const result = await emailLogin(loginId.trim(), password);
+      console.log("[LOGIN] Login result:", result);
 
-      const me = await fetchUserInfo().catch(() => null);
-      if (me?.nickname) {
-        await AsyncStorage.setItem(TERMS_KEY, "1");
-        await finishLoginStrict();
-      } else {
-        router.replace("/onboarding/terms");
+      const token = result?.accessToken || result?.access;
+      if (!token) {
+        throw new Error("인증 토큰을 받지 못했습니다.");
       }
+
+      // 토큰 저장
+      console.log("[LOGIN] Saving token...");
+      setToken(token);
+      await AsyncStorage.setItem("access_token", token);
+      if (result?.refreshToken) {
+        await AsyncStorage.setItem("refresh_token", result.refreshToken);
+      }
+
+      // 로그인 완료 처리
+      await finishLogin(token);
+
     } catch (e: any) {
-      Alert.alert("이메일 로그인", e?.response?.data?.detail || e?.message || "로그인 실패");
+      console.error("[LOGIN] Email login error:", e);
+      const detail = e?.response?.data?.detail || e?.message || "로그인에 실패했습니다.";
+      Alert.alert("로그인 실패", detail);
     } finally {
       setLoading(null);
     }
-  }, [loginId, password, finishLoginStrict, submitting]);
+  };
 
+  // 카카오 로그인
   const onKakao = useCallback(async () => {
     try {
       setLoading("kakao");
+      console.log("[KAKAO] Starting login...");
+
       const { access } = await loginWithKakaoNative();
-      useAuthStore.getState().setToken?.(access);
+      console.log("[KAKAO] Login success");
 
-      await AsyncStorage.removeItem(TERMS_KEY);
+      // 토큰 저장
+      setToken(access);
+      await AsyncStorage.setItem("access_token", access);
 
-      const me = await fetchUserInfo().catch(() => null);
-      if (me?.nickname) {
-        await AsyncStorage.setItem(TERMS_KEY, "1");
-        await finishLoginStrict();
-      } else {
-        router.replace("/onboarding/terms");
-      }
+      // 로그인 완료 처리
+      await finishLogin(access);
+
     } catch (e: any) {
+      console.error("[KAKAO] Login error:", e);
       Alert.alert("카카오 로그인", e?.message || "로그인에 실패했어요.");
     } finally {
       setLoading(null);
     }
-  }, [finishLoginStrict]);
+  }, [finishLogin, setToken]);
 
+  // 애플 로그인
   const onApple = useCallback(async () => {
     const bundleId =
       (Constants?.expoConfig as any)?.ios?.bundleIdentifier ??
       (Constants?.expoConfig as any)?.extra?.iosBundleIdentifier ??
       "unknown";
     console.log("[APPLE] bundleId =", bundleId);
-    console.log("[APPLE] onApple pressed, loading=", loading, "submitting=", submitting);
 
     if (Platform.OS !== "ios") {
       Alert.alert("Apple 로그인", "이 기능은 iOS에서만 지원됩니다.");
       return;
     }
-    if (submitting) return;
-    if (loading && loading !== "apple") return;
+    if (submitting || (loading && loading !== "apple")) return;
 
     try {
       setSubmitting(true);
       setLoading("apple");
-      const { token, isNew, needs, firstAppleAuth } = await loginWithApple();
-      useAuthStore.getState().setToken?.(token);
+      console.log("[APPLE] Starting login...");
 
-      await AsyncStorage.removeItem(TERMS_KEY);
+      const { token, isNew, firstAppleAuth } = await loginWithApple();
+      console.log("[APPLE] Login success, isNew:", isNew, "firstAppleAuth:", firstAppleAuth);
 
-      const me = await fetchUserInfo().catch(() => null);
-   if (firstAppleAuth || isNew || !me?.nickname) {
-     console.log("[ONBOARD] apple first/new -> terms");
-     router.replace("/onboarding/terms");
-     return;
-   }
+      // 토큰 저장
+      setToken(token);
+      await AsyncStorage.setItem("access_token", token);
 
-      if (me?.nickname) {
-        await AsyncStorage.setItem(TERMS_KEY, "1");
-        await finishLoginStrict();
-      } else {
-        router.replace("/onboarding/terms");
-      }
+      // 로그인 완료 처리
+      await finishLogin(token);
+
     } catch (e: any) {
-      console.log("[APPLE] ERROR", e?.code || e?.name, e?.message, e);
-      if (e?.code === "apple_signin_timeout") {
-        return;
-      }
+      console.error("[APPLE] Login error:", e);
+      
+      if (e?.code === "apple_signin_timeout") return;
       if (e?.code === "ERR_REQUEST_CANCELED" || e?.code === "ASAuthorizationErrorCanceled") return;
+      
       if (e?.code === "apple_auth_no_id_token") {
         Alert.alert(
           "Apple 로그인",
@@ -215,17 +178,17 @@ export default function LoginScreen() {
         );
         return;
       }
+      
       Alert.alert("Apple 로그인", e?.response?.data?.detail || e?.message || "로그인 실패");
     } finally {
       setLoading(null);
       setSubmitting(false);
-      console.log("[APPLE] finally");
     }
-  }, [loading, submitting, finishLoginStrict]);
+  }, [loading, submitting, finishLogin, setToken]);
 
   const disabled = !!loading || submitting;
 
-  // 페이지 이동 함수들 수정
+  // 페이지 이동 함수들
   const onFindId = () => router.push("/login/find-id");
   const onFindPw = () => router.push("/login/find-password");
   const onSignup = () => router.push("/login/email");
@@ -252,16 +215,28 @@ export default function LoginScreen() {
             returnKeyType="next"
           />
           {/* 비밀번호 */}
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="영문+숫자+특수문자 6~18자"
-            secureTextEntry
-            style={styles.input}
-            editable={!disabled}
-            returnKeyType="done"
-            onSubmitEditing={onEmailLogin}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="비밀번호"
+              secureTextEntry={!showPasswordConfirm}
+              style={[styles.input, styles.passwordInput]}
+              editable={!disabled}
+              returnKeyType="done"
+              onSubmitEditing={onEmailLogin}
+            />
+            <Pressable
+              onPress={() => setShowPasswordConfirm(!showPasswordConfirm)}
+              style={styles.eyeBtn}
+            >
+              <Ionicons
+                name={showPasswordConfirm ? "eye-off" : "eye"}
+                size={20}
+                color={Theme.colors.gray}
+              />
+            </Pressable>
+          </View>
 
           {/* 자동 로그인 체크 */}
           <Pressable
@@ -335,11 +310,11 @@ export default function LoginScreen() {
         </View>
       </ScrollView>
 
-      {/* 하단 버튼 영역 - 고정 */}
+      {/* 하단 버튼 영역 */}
       <View style={styles.bottomBtns}>
         <Pressable
           style={({ pressed }) => pressed && { opacity: 0.7 }}
-          onPress={() => router.push("notice")}
+          onPress={() => router.push("/notice")}
         >
           <Text style={styles.bottomBtnText}>공지사항</Text>
         </Pressable>
@@ -364,13 +339,13 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.white,
   },
   scrollContent: {
-    flexGrow: 1,  
-    justifyContent: "center", 
+    flexGrow: 1,
+    justifyContent: "center",
     paddingHorizontal: Theme.spacing.lg,
     paddingTop: Theme.spacing.xl,
     paddingBottom: Theme.spacing.xl,
   },
-  formArea: { 
+  formArea: {
     width: "100%",
     marginTop: Theme.spacing.xl,
   },
@@ -384,6 +359,9 @@ const styles = StyleSheet.create({
     fontSize: Theme.fontSizes.base,
     backgroundColor: "#fff",
   },
+  passwordInput: {
+    paddingRight: Theme.spacing.xs,
+  },
   autoLoginRow: {
     alignSelf: "flex-end",
     flexDirection: "row",
@@ -391,10 +369,10 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.md,
     gap: 4,
   },
-  autoLoginText: { 
-    fontSize: Theme.fontSizes.sm, 
-    color: Theme.colors.black, 
-    fontWeight: Theme.fontWeights.regular 
+  autoLoginText: {
+    fontSize: Theme.fontSizes.sm,
+    color: Theme.colors.black,
+    fontWeight: Theme.fontWeights.regular
   },
   loginBtn: {
     height: BTN_H,
@@ -417,13 +395,13 @@ const styles = StyleSheet.create({
     gap: 12,
     marginVertical: Theme.spacing.lg,
   },
-  linkText: { 
-    color: Theme.colors.gray, 
-    fontSize: Theme.fontSizes.sm 
+  linkText: {
+    color: Theme.colors.gray,
+    fontSize: Theme.fontSizes.sm
   },
-  linkDivider: { 
-    color: Theme.colors.lightGray, 
-    fontSize: Theme.fontSizes.sm 
+  linkDivider: {
+    color: Theme.colors.lightGray,
+    fontSize: Theme.fontSizes.sm
   },
   socialRow: {
     flexDirection: "row",
@@ -461,5 +439,17 @@ const styles = StyleSheet.create({
   verticalDivider: {
     color: Theme.colors.lightGray,
     textAlign: "center",
+  },
+  passwordContainer: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: Theme.spacing.sm,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Theme.spacing.sm,
   },
 });

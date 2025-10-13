@@ -1,14 +1,14 @@
 // app/layouts/RootLayout.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { Slot, Stack, usePathname } from 'expo-router';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Linking } from 'react-native';
+import { Slot, Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import Toast, { ToastConfigParams } from "react-native-toast-message";
 
 import Header from '@/components/layout/Header';
 import TabBar from '@/components/layout/TabBar';
 import Theme from '@/constants/Theme';
 import { ArtistProvider } from '@/context/ArtistContext';
-import { requestNotificationPermission, requestLocationPermission } from "@/utils/permissions";
+import { useAuthStore } from '@/src/state/authStore';
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import http from "@/api/http";
@@ -28,7 +28,65 @@ const toastConfig = {
 
 export default function RootLayout() {
   const pathname = usePathname();
+  const router = useRouter();
+  const segments = useSegments();
+  const { user, hydrated } = useAuthStore();
   const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const isMounted = useRef(false);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // 온보딩 체크
+  useEffect(() => {
+    // hydration이 완료될 때까지 대기
+    if (!hydrated) {
+      console.log("[LAYOUT] Not hydrated yet, waiting...");
+      return;
+    }
+
+    if (!isMounted.current) return;
+
+    console.log("[LAYOUT] Check onboarding - segments:", segments, "user:", user);
+
+    // 온보딩/로그인 화면은 스킵
+    if (segments[0] === "onboarding" || segments[0] === "login") {
+      console.log("[LAYOUT] In onboarding/login, skip check");
+      return;
+    }
+
+    // 사용자가 없으면 스킵 (로그아웃 상태)
+    if (!user) {
+      console.log("[LAYOUT] No user, skip check");
+      return;
+    }
+
+    // 프로필 미완료 체크 (회원가입 직후에만 해당)
+    if (user.is_completed === false) {
+      console.log("[LAYOUT] User not completed, redirecting to onboarding...");
+
+      setTimeout(() => {
+        if (isMounted.current) {
+          router.replace("/onboarding/terms");
+        }
+      }, 100);
+    } else {
+      console.log("[LAYOUT] User completed or no check needed, is_completed:", user.is_completed);
+    }
+  }, [user, segments, hydrated]);
+
+  // hydration 중에는 로딩 표시
+  if (!hydrated) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   useEffect(() => {
     const setupPushNotifications = async () => {
@@ -83,7 +141,7 @@ export default function RootLayout() {
         <Header pathname={pathname} />
 
         <View style={{ flex: 1 }}>
-          <Stack screenOptions={{ animation: 'none', headerShown: false, detachPreviousScreen: false, }}>
+          <Stack screenOptions={{ animation: 'none', headerShown: false, detachPreviousScreen: false }}>
             <Slot />
           </Stack>
         </View>
