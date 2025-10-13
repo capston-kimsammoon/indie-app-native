@@ -10,9 +10,9 @@ export const baseURL = (() => {
     config?.baseUrl ||
     process.env.EXPO_PUBLIC_API_BASE_URL ||
     extra.EXPO_PUBLIC_API_BASE_URL ||
-    (Platform.OS === "ios" ? "http://192.168.219.158:8000" :
-    Platform.OS === "android" ? "http://192.168.219.158:8000" :
-    "http://192.168.219.158:8000")
+    (Platform.OS === "ios" ? "http://192.168.45.13:8000" :
+    Platform.OS === "android" ? "http://192.168.45.13:8000" :
+    "http://192.168.45.13:8000")
   );
 })();
 
@@ -62,6 +62,12 @@ http.interceptors.response.use(
 
     if (path === "/user/me" && (err.config?.method || "").toUpperCase() === "PATCH") return Promise.reject(Object.assign(err, { _silent: true }));
 
+    if (status === 428 && path === "/auth/apple/callback") {
+      return Promise.reject(Object.assign(err, { _silent: true, code: "SIGNUP_REQUIRED" }));
+    }
+    if (path === "/user/me" && (err.config?.method || "").toUpperCase() === "GET") {
+        return Promise.reject(Object.assign(err, { _silent: true, code: "COMPLETE_REQUIRED" }));
+      }
     const method = (err.config?.method || "GET").toUpperCase();
     const detail = err.response?.data?.detail || err.message;
     console.error(`[HTTP ${status ?? "ERR"}] ${method} ${path} - ${detail}`);
